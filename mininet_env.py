@@ -1,54 +1,74 @@
-#!/usr/bin/python
+import sys
 
-import time
-import gym
+sys.path.insert(0, '/home/dmg/Desktop/DRLResearch/thesis_env/lib/python3.8/site-packages')   
+
+from collections import defaultdict
+
 import numpy as np
-from mininet_api import MininetAPI
+from gym import Env, spaces
+import json
+from random import choice
+from time import sleep
+
+import mininet_api
 
 
-class MininetEnv(gym.Env):
+class MininetEnv(Env):
     def __init__(self):
-        self.LINK_BW = 100
-        self.NUMBER_NODES = 10
-        self.MAX_TICKS = 1000
-
-        self.mininet_engine = MininetAPI(self.LINK_BW)
-
-        self.replay_buffer = []
-        self.episode_over = False
-        self.curr_episode = -1
-
-        # Transfer, Bitrate, Jitter, Packet loss
-        self.observation_space = np.full((self.NUMBER_NODES, self.NUMBER_NODES), [0.0, 0.0, 0.0, 0.0])
-        self.action_space = np.full((self.NUMBER_NODES, self.NUMBER_NODES), 1)
-
-    def step(self):
-        state = self.get_state()
-        action = self.take_action()
-        reward = self.get_reward()
-        time.sleep(2)
-        transformed_state = self.get_state()
-        return state, reward, action, transformed_state
-
-    def take_action(self):
+        self.number_of_paths = 5
+        # self.number_of_requests = 0
+        self.max_requests = 3
+        self.done = False
+        
+        self.mininet_engine = mininet_api.MininetAPI(5, 60, 100)
+        
+        self.observation_space = spaces.Box(np.array([0]), np.array([30]))
+        self.action_space = spaces.Discrete(self.number_of_paths)
+        #self.mininet_engine.build_action_space(self.number_of_paths)
+    
+    def step(self, action):
+        # action: start iperf between two hosts
+        # while self.number_of_requests != self.max_requests:
+            # numbers = list(range(1, self.mininet_engine.number_hosts+1))
+            # src_id = choice(numbers)
+            # numbers.remove(src_id)
+            
+            # action: start iperf between two hosts
+            # "h{}".format(src_id), "h{}".format(choice(numbers))
+        self.mininet_engine.start_iperf()
+            
+            # self.number_of_requests += 1
+            
+        sleep(40)
+        
+        # state: read iperf reports
+        n_state = self.mininet_engine.build_state()
+        
+        reward = 0
+        
+        # reward: evaluate state
+        for src in range(1, 10):
+            for dst in range(1, 10):
+                if n_state[src][dst] != None:
+                    avg_metric = sum(n_state[src][dst])/len(n_state[src][dst])
+                    if avg_metric > 22:
+                        reward += 10
+                    elif avg_metric > 15: 
+                        reward += 5
+                    elif avg_metric > 7: 
+                        reward -= 5
+                    else: 
+                        reward -= 10
+        
+        self.done = True
+        info = {}
+        
+        return n_state, reward, self.done, info
+    
+    def render():
         pass
-
-    def get_reward(self):
-        measures = self.mininet_engine.get_measures()
-        balanced_reward = 0
-        balanced_reward += float(measures[0])/self.LINK_BW
-        # continue with the remaining metrics
-        return balanced_reward
-
-    def get_state(self):
-        pass
-
+    
     def reset(self):
-        pass
-
-
-if __name__ == '__main__':
-    print("Environment started!")
-    print("Measuring...")
-    mininet_env = MininetEnv()
-    print(mininet_env.step())
+        self.done = False
+        # self.number_of_requests = 0
+        self.mininet_engine.reset_measures()

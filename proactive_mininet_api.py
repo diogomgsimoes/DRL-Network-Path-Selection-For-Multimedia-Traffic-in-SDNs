@@ -7,13 +7,15 @@ import time
 import numpy as np
 import socket
 import threading
+import random
 
 import proactive_paths_computation
 import proactive_topology_mininet
 
-# active_paths = {}
 paths = {}
 controller_stats = {}
+busy_ports = []
+host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H1', 'H8')]
 
 
 class MininetAPI(object):    
@@ -53,8 +55,6 @@ class MininetAPI(object):
                 if len(item) > 0:
                     elements = item.split("_")
                     controller_stats[(elements[0], elements[1])] = elements[2]
-                    
-            # print(controller_stats)
     
     # build the network state using the controller stats and paths dict
     def build_state(self):
@@ -92,7 +92,7 @@ class MininetAPI(object):
         return state
     
     # send paths to the controller for rule installation
-    def send_path_to_controller(self, action, server, client):
+    def send_path_to_controller(self, action, client, server):
         path = paths[(client, server)][action]
         path_r = paths[(server, client)][action]
              
@@ -107,26 +107,23 @@ class MininetAPI(object):
         time.sleep(1)
      
     # start traffic flows with iperf
-    def start_iperf(self, action, request_number):             
-        if request_number == 0:
-            self.send_path_to_controller(action, 'H4', 'H1')
-            dst_ip = self.net.getNodeByName('H4').IP()
-            self.net.getNodeByName('H4').cmd('iperf3 -s -i 1 -p 1111 >& h4_server_1.log &')
-            self.net.getNodeByName('H1').cmd('iperf3 -c {} -u -b 30M -t 20 -p 1111 >& h1_h4_client1.log &'.format(dst_ip))
+    def start_iperf(self, action):
+        hosts_pair = host_pairs.pop(0)
+        self.send_path_to_controller(action, hosts_pair[0], hosts_pair[1])
         
-        if request_number == 1:
-            self.send_path_to_controller(action, 'H5', 'H1')
-            dst_ip = self.net.getNodeByName('H5').IP()
-            self.net.getNodeByName('H5').cmd('iperf3 -s -i 1 -p 2222 >& h5_server_2.log &')
-            self.net.getNodeByName('H1').cmd('iperf3 -c {} -u -b 30M -t 20 -p 2222 >& h1_h5_client2.log &'.format(dst_ip))
-        
-        if request_number == 2:
-            self.send_path_to_controller(action, 'H8', 'H1')
-            dst_ip = self.net.getNodeByName('H8').IP()
-            self.net.getNodeByName('H8').cmd('iperf3 -s -i 1 -p 3333 >& h8_server_3.log &')
-            self.net.getNodeByName('H1').cmd('iperf3 -c {} -u -b 30M -t 20 -p 3333 >& h1_h8_client3.log &'.format(dst_ip))
+        while True:
+            port = random.randint(1000, 9999)
+            if port not in busy_ports: break
+
+        dst_ip = self.net.getNodeByName(hosts_pair[1]).IP()
+        self.net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
+        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -u -b 30M -t 20 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
         
     # clear files and variables
     def reset_measures(self):
+        global busy_ports, host_pairs
+        
         os.system("rm -f ./*.log")
         open('active_paths.txt', 'w').close()  
+        busy_ports = []
+        host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H1', 'H8')]

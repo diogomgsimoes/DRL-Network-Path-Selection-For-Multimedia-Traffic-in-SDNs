@@ -14,6 +14,7 @@ import socket
 import proactive_paths_computation
 
 TOPOLOGY_FILE_NAME = 'topology.txt'
+NUMBER_SWITCHES = 10
 
 host_to_switch_port = defaultdict(lambda: defaultdict(lambda: None))
 adjacency = {}
@@ -27,6 +28,7 @@ bw = {}
 switch_ports = {}
 _switches = []
 host_ip_mac = {}
+paths_hops = {}
 
 
 def topology_discovery():
@@ -77,7 +79,6 @@ def load_paths():
                 path_list = list(a[2].split(","))
                 for i in range(len(path_list)):
                     if "[" in path_list[i]:
-                        # "H" + 
                         path_list[i] = path_list[i].replace("[", "")
                         path_list[i] = path_list[i].replace(" ", "")
                         path_list[i] = path_list[i].replace("'", "")
@@ -99,8 +100,8 @@ def load_paths():
 
     except IOError:
         print("file not ready")
-        
 
+                    
 class DRLProactiveController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -164,20 +165,22 @@ class DRLProactiveController(app_manager.RyuApp):
                     byte[(str(dpid), sw)] = stat.tx_bytes
                     clock[(str(dpid), sw)] = time.time()
                     
-        for src_host in host_to_switch_port.keys():
-            for dst_host in host_to_switch_port.keys():
-                if src_host != dst_host:
-                    graph = proactive_paths_computation.build_graph_from_txt()
-                    paths[(src_host, dst_host)] = proactive_paths_computation.dijkstra_from_macs(
-                        graph, src_host, dst_host, host_to_switch_port, adjacency)
-                    self.install_path(paths[(src_host, dst_host)], src_host, dst_host)
+        if len(self.datapaths) == NUMBER_SWITCHES:
+            load_paths()
+            self.update_paths()   
+                
+    def update_paths(self):
+        global paths_hops, paths
         
-        load_paths()
         for path in active_paths.values():
             src_mac = "00:00:00:00:00:{}".format(path[0][1:].zfill(2))
             dst_mac = "00:00:00:00:00:{}".format(path[-1][1:].zfill(2))
-            p_tuples = proactive_paths_computation.add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac)
-            self.install_path(p_tuples, src_mac, dst_mac)
+            saved_path = paths_hops.get((src_mac, dst_mac))
+            if saved_path != path:
+                self.uninstall_path(paths[(src_mac, dst_mac)], src_mac, dst_mac)
+                paths_hops[(src_mac, dst_mac)] = path
+                paths[(src_mac, dst_mac)] = proactive_paths_computation.add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac)
+                self.install_path(paths[(src_mac, dst_mac)], src_mac, dst_mac)
 
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
@@ -192,6 +195,9 @@ class DRLProactiveController(app_manager.RyuApp):
             if datapath.id in self.datapaths:
                 print('Datapath {} unregistered.'.format(datapath.id))
                 del self.datapaths[datapath.id]
+                
+        if len(self.datapaths) == NUMBER_SWITCHES:
+            self.install_starting_rules()     
     
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -224,6 +230,15 @@ class DRLProactiveController(app_manager.RyuApp):
             
         datapath.send_msg(mod)
         
+    def remove_flow(self, datapath, match):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        
+        mod = parser.OFPFlowMod(datapath=datapath, match=match, priority=1,
+                                command=ofproto.OFPFC_DELETE, out_group=ofproto.OFPG_ANY, out_port=ofproto.OFPP_ANY)
+            
+        datapath.send_msg(mod)
+        
     def install_path(self, p, src_mac, dst_mac):
         for sw, in_port, out_port in p:
             datapath = self.datapaths.get(int(sw))
@@ -231,7 +246,28 @@ class DRLProactiveController(app_manager.RyuApp):
             match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
             actions = [parser.OFPActionOutput(out_port)]
             self.add_flow(datapath, 1, match, actions)
+            
+    def uninstall_path(self, p, src_mac, dst_mac):
+        for sw, in_port, _ in p:
+            datapath = self.datapaths.get(int(sw))
+            parser = datapath.ofproto_parser
+            match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
+            self.remove_flow(datapath, match)
 
+    def install_starting_rules(self):
+        global paths, paths_hops
+        
+        for src_host in host_to_switch_port.keys():
+                for dst_host in host_to_switch_port.keys():
+                    if src_host != dst_host:
+                        graph = proactive_paths_computation.build_graph_from_txt()
+                        path = proactive_paths_computation.dijkstra_from_macs(
+                            graph, src_host, dst_host, host_to_switch_port, adjacency)
+                        paths_hops[(src_host, dst_host)] = path
+                        paths[(src_host, dst_host)] = proactive_paths_computation.add_ports_to_path(
+                            path, host_to_switch_port, adjacency, src_host, dst_host)
+                        self.install_path(paths[(src_host, dst_host)], src_host, dst_host)
+                    
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg

@@ -10,9 +10,6 @@ Scripts: proactive_drl_controller + proactive_topology_mininet + proactive_paths
 
 
 ## Baseline version: ## 
-Scripts: proactive_topology_mininet + proactive_ryu_controller
+Scripts: proactive_ryu_controller + proactive_topology_mininet (for manual test) or proactive_baseline_performance_tester (for script test)
 
 ### TODO: ###
-1) Add flow number control stat
-2) Stop path changes midst iperf
-3) Develop simulation script

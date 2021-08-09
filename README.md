@@ -11,5 +11,3 @@ Scripts: proactive_drl_controller + proactive_topology_mininet + proactive_paths
 
 ## Baseline version: ## 
 Scripts: proactive_ryu_controller + proactive_topology_mininet (for manual test) or proactive_baseline_performance_tester (for script test)
-
-### TODO: ###

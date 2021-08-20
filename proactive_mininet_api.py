@@ -14,8 +14,8 @@ import proactive_topology_mininet
 
 paths = {}
 controller_stats = {}
-busy_ports = []
-host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H1', 'H8')]
+busy_ports = [6631, 6633]
+host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H2', 'H5'), ('H2', 'H8'), ('H3', 'H6'), ('H3', 'H7'), ('H4', 'H5'), ('H4', 'H8')]
 
 
 class MininetAPI(object):    
@@ -114,10 +114,12 @@ class MininetAPI(object):
         while True:
             port = random.randint(1000, 9999)
             if port not in busy_ports: break
+            
+        print("PORT NUMBER:", port)
 
         dst_ip = self.net.getNodeByName(hosts_pair[1]).IP()
         self.net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
-        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -u -b 30M -t 20 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
+        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -u -b 20M -t 60 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
         
     # clear files and variables
     def reset_measures(self):
@@ -126,4 +128,4 @@ class MininetAPI(object):
         os.system("rm -f ./*.log")
         open('active_paths.txt', 'w').close()  
         busy_ports = []
-        host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H1', 'H8')]
+        host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H2', 'H5'), ('H2', 'H8'), ('H3', 'H6'), ('H3', 'H7'), ('H4', 'H5'), ('H4', 'H8')]

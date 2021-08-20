@@ -5,6 +5,7 @@ sys.path.insert(0, '/home/dmg/Desktop/DRLResearch/thesis_env/lib/python3.8/site-
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import datetime
 
 from tf_agents.agents.dqn import dqn_agent
 from tf_agents.environments import suite_gym
@@ -18,15 +19,15 @@ from tf_agents.utils import common
 
 # Hyperparameters
 # TODO: Tune these
-num_iterations = 12
-initial_collect_steps = 12 
-collect_steps_per_iteration = 3 
+num_iterations = 1000
+initial_collect_steps = 16 
+collect_steps_per_iteration = 8
 replay_buffer_max_length = 100000
-batch_size = 3
+batch_size = 8
 learning_rate = 1e-3
-num_eval_episodes = 5
-log_interval = 2
-eval_interval = 3
+num_eval_episodes = 1
+log_interval = 5
+eval_interval = 25
 
 # Make environments compatible with Tensorflow agents and policies
 # Environment loaded from OpenAI Gym to Tensorflow to be used by TF-Agents
@@ -36,7 +37,7 @@ tf_env = tf_py_environment.TFPyEnvironment(env)
 
 # Number of nodes in each dense layer
 # TODO: Tune this, how many layers, how many units
-fc_layer_params = (100, 50)
+fc_layer_params = (160, 80)
 
 # Number of actions and, consequently, outputs of the Q-Network
 action_tensor_spec = tensor_spec.from_spec(tf_env.action_spec())
@@ -86,7 +87,7 @@ def build_agent():
     return agent
 
 # Calculate the average return of 'num_episodes'
-def compute_avg_return(environment, policy, num_episodes=10):
+def compute_avg_return(environment, policy, num_episodes):
     total_return = 0.0
     for _ in range(num_episodes):
         time_step = environment.reset()
@@ -96,6 +97,7 @@ def compute_avg_return(environment, policy, num_episodes=10):
             action_step = policy.action(time_step)
             time_step = environment.step(action_step.action)
             episode_return += time_step.reward
+        
         total_return += episode_return
 
     avg_return = total_return / num_episodes
@@ -119,21 +121,17 @@ if __name__ == '__main__':
     agent = build_agent()
     random_policy = random_tf_policy.RandomTFPolicy(tf_env.time_step_spec(), tf_env.action_spec())
     
-    # Get baseline performance
-    # print("AVG_PERFORMANCE:", compute_avg_return(tf_env, random_policy, num_eval_episodes))
-    
     replay_buffer = tf_uniform_replay_buffer.TFUniformReplayBuffer(
         data_spec=agent.collect_data_spec,
         batch_size=tf_env.batch_size,
         max_length=replay_buffer_max_length)
     
     collect_data(tf_env, random_policy, replay_buffer, initial_collect_steps)
-    # print("REPLAY_BUFFER_SAMPLE:", iter(replay_buffer.as_dataset()).next())
     
     dataset = replay_buffer.as_dataset(
         #num_parallel_calls=3, 
         sample_batch_size=batch_size, 
-        num_steps=2).prefetch(3)
+        num_steps=2).prefetch(2)
     iterator = iter(dataset)
 
     # Reset the train step
@@ -146,7 +144,8 @@ if __name__ == '__main__':
     print('Training...')
 
     # Train the agent
-    for _ in range(num_iterations):
+    for i in range(num_iterations):
+        print("Iteration {} of {}.".format(i, num_iterations))
         # Collect a few steps using collect_policy and save to the replay buffer.
         print('Collecting data for replay buffer...')
         collect_data(tf_env, agent.collect_policy, replay_buffer, collect_steps_per_iteration)
@@ -174,3 +173,5 @@ if __name__ == '__main__':
     plt.xlabel('Iterations')
     plt.ylim(top=30)
     plt.savefig('avg_return.png')
+    
+    print("Finish time:", datetime.datetime.now())

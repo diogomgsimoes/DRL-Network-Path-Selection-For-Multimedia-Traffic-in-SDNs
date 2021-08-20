@@ -15,8 +15,10 @@ REWARD_SCALE = NUMBER_HOSTS*NUMBER_HOSTS*NUMBER_PATHS
 
 class MininetEnv(Env):
     def __init__(self):
+        global state
+        
         self.number_of_requests = 0
-        self.max_requests = 3
+        self.max_requests = 8
         self.done = False
         
         self.mininet_engine = proactive_mininet_api.MininetAPI(NUMBER_HOSTS, NUMBER_PATHS)
@@ -25,12 +27,13 @@ class MininetEnv(Env):
             low=np.zeros((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), dtype=np.float32), \
             high=np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 102400, dtype=np.float32), dtype=np.float32)
         
-        self.state = np.zeros((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), dtype=np.float32)
+        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 102400, dtype=np.float32)
+                
         self.action_space = spaces.Discrete(NUMBER_PATHS)
     
     def step(self, action):
         # action: start iperf between two hosts
-        self.mininet_engine.start_iperf(action, self.number_of_requests)
+        self.mininet_engine.start_iperf(action)
         self.number_of_requests += 1
         
         print("ACTION:", action)
@@ -64,17 +67,21 @@ class MininetEnv(Env):
         print("REWARD:", reward/REWARD_SCALE)
                         
         if self.number_of_requests == self.max_requests:
-            sleep(25)
+            sleep(63)
             self.done = True
             
         return self.state, reward/REWARD_SCALE, self.done, info
     
+    def get_state(self):
+        return self.state
+    
     def render():
         pass
     
-    def reset(self):
+    def reset(self):  
         self.done = False
-        self.state = np.zeros((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), dtype=np.float32)
+        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 102400, dtype=np.float32)
         self.number_of_requests = 0
         self.mininet_engine.reset_measures()
+        
         return self.state

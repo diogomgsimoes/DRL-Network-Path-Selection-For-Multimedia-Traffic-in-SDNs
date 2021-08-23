@@ -122,7 +122,7 @@ class DRLProactiveController(app_manager.RyuApp):
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
-            hub.sleep(3)
+            hub.sleep(2)
             
             _str = ""
             for item in bw_available:

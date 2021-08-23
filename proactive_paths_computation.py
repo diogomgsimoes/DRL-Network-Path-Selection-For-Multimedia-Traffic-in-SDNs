@@ -73,9 +73,9 @@ def dijkstra_from_macs(graph, src_mac, dst_mac, host_to_switch_port, adjacency):
         
     path = nx.dijkstra_path(graph, src, dst)
     
-    path_tuples = add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac)
+    # path_tuples = add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac)
     
-    return path_tuples
+    return path
     
 def add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac):
     p_tuples = []

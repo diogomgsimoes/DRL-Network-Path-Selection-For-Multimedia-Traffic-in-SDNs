@@ -1,4 +1,4 @@
-# RYU-Controller-DRL_vs_Dijkstra-Mininet #
+# DRL-based Network Path Selection For Multimedia Traffic in SDNs #
 
 ## DRL version: ##
 Scripts: proactive_drl_controller + proactive_topology_mininet + proactive_paths_computation + proactive_mininet_api + mininet_env + (env_test if testing or /agents if training)

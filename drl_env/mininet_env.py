@@ -15,8 +15,6 @@ REWARD_SCALE = NUMBER_HOSTS*NUMBER_HOSTS*NUMBER_PATHS
 
 class MininetEnv(Env):
     def __init__(self):
-        global state
-        
         self.number_of_requests = 0
         self.max_requests = 8
         self.done = False
@@ -25,14 +23,13 @@ class MininetEnv(Env):
         
         self.observation_space = spaces.Box( \
             low=np.zeros((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), dtype=np.float32), \
-            high=np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 102400, dtype=np.float32), dtype=np.float32)
+            high=np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 100, dtype=np.float32), dtype=np.float32)
         
-        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 102400, dtype=np.float32)
+        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 100, dtype=np.float32)
                 
         self.action_space = spaces.Discrete(NUMBER_PATHS)
     
     def step(self, action):
-        # action: start iperf between two hosts
         self.mininet_engine.start_iperf(action)
         self.number_of_requests += 1
         
@@ -43,9 +40,9 @@ class MininetEnv(Env):
         self.done = False
         info = {}
         
-        sleep(5)
+        sleep(3)
                 
-        # state: read iperf reports
+        # state: read link stats
         self.state = self.mininet_engine.build_state()
     
         # reward: evaluate state
@@ -54,33 +51,35 @@ class MininetEnv(Env):
                 for path_number in range(NUMBER_PATHS):
                     metric = self.state[src, dst, path_number]
                     if metric != None:
-                        metric_percentage = (metric/102400)*100
-                        if metric_percentage > 80:
-                            reward += 10
+                        metric_percentage = metric
+                        if metric_percentage > 75:
+                            reward += 20
                         elif metric_percentage > 50: 
-                            reward += 5
-                        elif metric_percentage > 30: 
-                            reward -= 5
-                        else: 
+                            reward += 10
+                        elif metric_percentage > 25: 
+                            pass
+                        elif metric_percentage > 0: 
                             reward -= 10
+                        else:
+                            reward -= 20
                             
         print("REWARD:", reward/REWARD_SCALE)
                         
         if self.number_of_requests == self.max_requests:
-            sleep(63)
+            sleep(31)
             self.done = True
             
         return self.state, reward/REWARD_SCALE, self.done, info
     
-    def get_state(self):
-        return self.state
-    
     def render():
         pass
     
+    def get_state(self):
+        return self.state
+    
     def reset(self):  
         self.done = False
-        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 102400, dtype=np.float32)
+        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 100, dtype=np.float32)
         self.number_of_requests = 0
         self.mininet_engine.reset_measures()
         

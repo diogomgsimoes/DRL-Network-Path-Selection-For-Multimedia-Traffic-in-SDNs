@@ -13,9 +13,35 @@ import proactive_paths_computation
 import proactive_topology_mininet
 
 paths = {}
+bw = {}
 controller_stats = {}
 busy_ports = [6631, 6633]
 host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H2', 'H5'), ('H2', 'H8'), ('H3', 'H6'), ('H3', 'H7'), ('H4', 'H5'), ('H4', 'H8')]
+
+bw[('8', '3')] = 100
+bw[('3', '8')] = 100
+bw[('8', '4')] = 100
+bw[('4', '8')] = 100
+bw[('8', '10')] = 100
+bw[('10', '8')] = 100
+bw[('5', '1')] = 100
+bw[('1', '5')] = 100
+bw[('5', '2')] = 100
+bw[('2', '5')] = 100
+bw[('5', '9')] = 100
+bw[('9', '5')] = 100
+bw[('4', '7')] = 100
+bw[('7', '4')] = 100
+bw[('7', '3')] = 100
+bw[('3', '7')] = 100
+bw[('7', '9')] = 100
+bw[('9', '7')] = 100
+bw[('2', '6')] = 100
+bw[('6', '2')] = 100
+bw[('10', '6')] = 100
+bw[('6', '10')] = 100
+bw[('1', '6')] = 100
+bw[('6', '1')] = 100
 
 
 class MininetAPI(object):    
@@ -58,6 +84,7 @@ class MininetAPI(object):
     
     # build the network state using the controller stats and paths dict
     def build_state(self):
+        print(bw)
         state = np.empty((self.n_hosts,self.n_hosts,self.n_paths,1), dtype=object)
         
         for src in range(1, self.n_hosts+1):
@@ -71,17 +98,17 @@ class MininetAPI(object):
                         for idx in range(self.n_paths):
                             state[src-1, dst-1, idx] = 1
                     else: 
-                        state[src-1, dst-1, 0] = 102400
+                        state[src-1, dst-1, 0] = 100
                         for idx in range(1, self.n_paths):
                             state[src-1, dst-1, idx] = 1
                 else:
                     for path in paths[(h_src, h_dst)]:
                         path = path[1:-1]
                         for s1, s2 in zip(path[:-1], path[1:]):
-                            stats = controller_stats.get((str(s1), str(s2)))
+                            stats = bw.get((str(s1), str(s2)))
                             if stats:
                                 if float(stats) < float(min_value):
-                                    min_value = controller_stats[(str(s1), str(s2))]
+                                    min_value = bw[(str(s1), str(s2))]
                     
                         state[src-1, dst-1, cnt] = float(min_value)
                         cnt += 1
@@ -93,6 +120,8 @@ class MininetAPI(object):
     
     # send paths to the controller for rule installation
     def send_path_to_controller(self, action, client, server):
+        global bw
+        
         path = paths[(client, server)][action]
         path_r = paths[(server, client)][action]
              
@@ -105,6 +134,17 @@ class MininetAPI(object):
             print("file not ready")   
         
         time.sleep(1)
+        
+        _path = path[1:-1]
+        for s1, s2 in zip(_path[:-1], _path[1:]):
+            if bw.get((str(s1), str(s2))):
+                bw[(str(s1), str(s2))] -= 20
+                if bw[(str(s1), str(s2))] == 0:
+                    bw[(str(s1), str(s2))] = 1
+            if bw.get((str(s2), str(s1))):
+                bw[(str(s2), str(s1))] -= 20
+                if bw[(str(s2), str(s1))] == 0:
+                    bw[(str(s2), str(s1))] = 1
      
     # start traffic flows with iperf
     def start_iperf(self, action):
@@ -119,13 +159,39 @@ class MininetAPI(object):
 
         dst_ip = self.net.getNodeByName(hosts_pair[1]).IP()
         self.net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
-        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -u -b 20M -t 60 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
+        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 20M -t 30 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
         
     # clear files and variables
     def reset_measures(self):
-        global busy_ports, host_pairs
+        global busy_ports, host_pairs, bw
+        
+        bw = {}
+        bw[('8', '3')] = 100
+        bw[('3', '8')] = 100
+        bw[('8', '4')] = 100
+        bw[('4', '8')] = 100
+        bw[('8', '10')] = 100
+        bw[('10', '8')] = 100
+        bw[('5', '1')] = 100
+        bw[('1', '5')] = 100
+        bw[('5', '2')] = 100
+        bw[('2', '5')] = 100
+        bw[('5', '9')] = 100
+        bw[('9', '5')] = 100
+        bw[('4', '7')] = 100
+        bw[('7', '4')] = 100
+        bw[('7', '3')] = 100
+        bw[('3', '7')] = 100
+        bw[('7', '9')] = 100
+        bw[('9', '7')] = 100
+        bw[('2', '6')] = 100
+        bw[('6', '2')] = 100
+        bw[('10', '6')] = 100
+        bw[('6', '10')] = 100
+        bw[('1', '6')] = 100
+        bw[('6', '1')] = 100
         
         os.system("rm -f ./*.log")
         open('active_paths.txt', 'w').close()  
-        busy_ports = []
+        busy_ports = [6631, 6633]
         host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H2', 'H5'), ('H2', 'H8'), ('H3', 'H6'), ('H3', 'H7'), ('H4', 'H5'), ('H4', 'H8')]

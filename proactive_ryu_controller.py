@@ -130,7 +130,7 @@ class ProactiveController(app_manager.RyuApp):
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
-            hub.sleep(5)
+            hub.sleep(3)
     
     def _request_stats(self, datapath):
         ofproto = datapath.ofproto
@@ -170,33 +170,36 @@ class ProactiveController(app_manager.RyuApp):
                             
                         bw_available[(str(dpid), sw)] = int(bw.get((str(dpid), sw), 0) \
                             * 1024.0) - float(bw_used.get((str(dpid), sw), 0))
+                        
+                        # Static version
+                        costs[(str(dpid), sw)] = 1
                             
                         # Uncomment for DSP
                         # costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
                         
-                        if int(number_flows.get((str(dpid), sw), 0)) == 0 and int(number_flows.get((str(dpid), sw), 0)) == 0:
-                            costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
-                        else:
-                            costs[(str(dpid), sw)] = (int(number_flows.get((str(dpid), sw), 0))/2 + \
-                                int(number_flows.get((str(dpid), sw), 0))/2)/int(bw_available.get((str(dpid), sw), 0))
+                        # if int(number_flows.get((str(dpid), sw), 0)) == 0 and int(number_flows.get((str(dpid), sw), 0)) == 0:
+                        #     costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
+                        # else:
+                        #     costs[(str(dpid), sw)] = (int(number_flows.get((str(dpid), sw), 0))/2 + \
+                        #         int(number_flows.get((str(dpid), sw), 0))/2)/int(bw_available.get((str(dpid), sw), 0))
                             
                     byte[(str(dpid), sw)] = stat.tx_bytes
                     clock[(str(dpid), sw)] = time.time()
                     
-        print("NUMBER_FLOWS:", number_flows)
-        print("COSTS:", costs)
-        if active_hosts:
-            paths = []
-            for item in active_hosts:
-                paths.append(paths_hops.get(item))
-            if paths:
-                print("ACTIVE_PATHS:", paths)
-        print("BW_AVAILABLE:", bw_available)
+        # print("NUMBER_FLOWS:", number_flows)
+        # print("COSTS:", costs)
+        # if active_hosts:
+        #     paths = []
+        #     for item in active_hosts:
+        #         paths.append(paths_hops.get(item))
+        #     if paths:
+        #         print("ACTIVE_PATHS:", paths)
+        # print("BW_AVAILABLE:", bw_available)
                     
         if len(self.datapaths) == NUMBER_SWITCHES:
             load_active_hosts()
             self.update_paths()
-            self.update_flows()
+            # self.update_flows()
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev):

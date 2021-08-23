@@ -97,4 +97,3 @@ def add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac):
                     host_to_switch_port[dst_mac][switches_in_path[-1][1:]]))
         
     return p_tuples
-

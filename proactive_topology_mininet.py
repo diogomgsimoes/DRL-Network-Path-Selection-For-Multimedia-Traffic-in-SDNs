@@ -8,7 +8,7 @@ from mininet.node import RemoteController, OVSSwitch
 from mininet.link import TCLink
 
 
-TOPOLOGY_FILE_NAME = 'topology.txt'
+TOPOLOGY_FILE_NAME = 'topology_arpanet.txt'
 DICT_OPT = dict(bw=100, delay='1ms', loss=0)
 
 
@@ -38,7 +38,7 @@ def build_topology_from_txt(net):
 def start_network():
     setLogLevel('info')
     
-    net = Mininet(controller=RemoteController, switch=OVSSwitch, link=TCLink, autoSetMacs=True, ipBase='10.0.0.0/8')
+    net = Mininet(controller=RemoteController, switch=OVSSwitch, link=TCLink, autoSetMacs=True, ipBase='10.0.0.0/24')
     
     build_topology_from_txt(net)
     net.addController('c0', controller=RemoteController, ip='127.0.0.1', port=6633)

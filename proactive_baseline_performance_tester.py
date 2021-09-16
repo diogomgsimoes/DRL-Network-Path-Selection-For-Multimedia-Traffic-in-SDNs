@@ -12,7 +12,8 @@ last_comms = []
 shortest_paths = {}
 busy_ports = [6631, 6633]
 host_pairs = [('H1', 'H13'), ('H2', 'H9'), ('H4', 'H10'), ('H3', 'H6'), ('H5', 'H10'), ('H3', 'H12'), ('H1', 'H11'), ('H7', 'H9'), 
-            ('H1', 'H8'), ('H2', 'H10'), ('H4', 'H13'), ('H3', 'H13'), ('H5', 'H12'), ('H3', 'H9'), ('H1', 'H9'), ('H7', 'H13')]
+            ('H1', 'H8'), ('H2', 'H10'), ('H4', 'H13'), ('H3', 'H13'), ('H5', 'H12'), ('H3', 'H9'), ('H1', 'H9'), ('H7', 'H13'), 
+            ('H1', 'H12'), ('H1', 'H10'), ('H4', 'H9'), ('H4', 'H11'), ('H4', 'H12'), ('H7', 'H8'), ('H7', 'H10'), ('H7', 'H11')]
 
 # host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H2', 'H5'), ('H2', 'H8'), ('H3', 'H6'), ('H3', 'H7'), ('H4', 'H5'), ('H4', 'H8')]
 
@@ -32,13 +33,8 @@ def simulate(net):
     time.sleep(5)
 
     dst_ip = net.getNodeByName(hosts_pair[1]).IP()
-    
-    net.getNodeByName(hosts_pair[0]).cmd('ping {} &'.format(hosts_pair[1]))
-    # net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
-    net.getNodeByName(hosts_pair[1]).cmd('tcpdump -XX -n -i {}-eth0 > tcpdump_{}_{} &'.format(hosts_pair[1], hosts_pair[1], port))
-    
-    # net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 15M -t 120 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
-    net.getNodeByName(hosts_pair[0]).cmd('tcpdump -XX -n -i {}-eth0 > tcpdump_{}_{} &'.format(hosts_pair[0], hosts_pair[0], port))
+    net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
+    net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 15M -t 120 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
     
 def set_active_paths(pair):
     global active_comms
@@ -60,6 +56,17 @@ def transfer_active_paths():
                 print("file not ready")   
                 
             last_comms = copy.deepcopy(active_comms)
+            
+def add_arps(net):
+    for id_src in range(1, 14):
+        for id_dst in range(1, 14):
+            dst_mac = "00:00:00:00:00:{}".format(str(id_dst).zfill(2))
+            
+            dst_mac_int = int(dst_mac[-2:])
+            dst_mac_hex = "{:012x}".format(dst_mac_int)
+            dst_mac_hex_str = ":".join(dst_mac_hex[i:i+2] for i in range(0, len(dst_mac_hex), 2))
+    
+            net.getNodeByName("H" + str(id_src)).cmd("arp -s 10.0.0.{} {}".format(id_dst, dst_mac_hex_str))
 
 def clear_structures():
     os.system("rm -f ./*.log")
@@ -70,6 +77,7 @@ if __name__ == "__main__":
     net = proactive_topology_mininet.start_network()
     
     clear_structures()
+    add_arps(net)
 
     now = datetime.now()
     current_time = now.strftime("%H:%M:%S")

@@ -7,14 +7,12 @@ from ryu.controller.handler import set_ev_cls
 from ryu.lib.packet import packet, arp
 from collections import defaultdict
 from operator import attrgetter
-import json
 import time
-import socket
 
 import proactive_paths_computation
 
-TOPOLOGY_FILE_NAME = 'topology.txt'
-NUMBER_SWITCHES = 10
+TOPOLOGY_FILE_NAME = 'topology_arpanet.txt'
+NUMBER_SWITCHES = 20
 
 host_to_switch_port = defaultdict(lambda: defaultdict(lambda: None))
 adjacency = {}
@@ -71,8 +69,10 @@ def topology_discovery():
 def load_paths():
     global active_paths
     
+    active_paths.clear()
+    
     try:
-        f = open("active_paths.txt", "r")
+        f = open("drl_active_paths.txt", "r")
         for line in f:
             a = line.strip('\n').split('_')
             if a:
@@ -113,35 +113,60 @@ class DRLProactiveController(app_manager.RyuApp):
         topology_discovery()
 
     def _monitor(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind(('127.0.0.1', 6631))
-        s.listen()
-        conn, _ = s.accept()
+        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # s.bind(('127.0.0.1', 6631))
+        # s.listen()
+        # conn, _ = s.accept()
         
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
-            hub.sleep(2)
+            hub.sleep(3)
             
-            _str = ""
-            for item in bw_available:
-                _str = _str + item[0] + "_" + item[1] + "_" + str(bw_available[item]) + "/"
+            # _str = ""
+            # for item in bw_available:
+            #     _str = _str + item[0] + "_" + item[1] + "_" + str(bw_available[item]) + "/"
                 
-            conn.sendall(len(_str).to_bytes(4, 'little'))
-            conn.sendall(_str.encode('utf-8'))
+            # conn.sendall(len(_str).to_bytes(4, 'little'))
+            # conn.sendall(_str.encode('utf-8'))
         
     def _request_stats(self, datapath):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        # req = parser.OFPFlowStatsRequest(datapath)
-        # datapath.send_msg(req)
+
         req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
         datapath.send_msg(req)
 
-    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
-    def _flow_stats_reply_handler(self, ev):
-        pass 
+    @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
+    def _state_change_handler(self, ev):
+        datapath = ev.datapath
+
+        if ev.state == MAIN_DISPATCHER:
+            if not datapath.id in self.datapaths:
+                print('Datapath {} registered.'.format(datapath.id))
+                self.datapaths[datapath.id] = datapath
+
+        elif ev.state == DEAD_DISPATCHER:
+            if datapath.id in self.datapaths:
+                print('Datapath {} unregistered.'.format(datapath.id))
+                del self.datapaths[datapath.id]
+                
+        if len(self.datapaths) == NUMBER_SWITCHES:
+            self.install_starting_rules()    
+    
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        match = parser.OFPMatch()
+
+
+        actions = [parser.OFPActionOutput(
+            ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
+        
+        self.add_flow(datapath, 0, match, actions)
             
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
@@ -159,8 +184,6 @@ class DRLProactiveController(app_manager.RyuApp):
                             
                         bw_available[(str(dpid), sw)] = int(bw.get((str(dpid), sw), 0) \
                             * 1024.0) - float(bw_used.get((str(dpid), sw), 0))
-                        
-                    # print(bw_available)
                         
                     byte[(str(dpid), sw)] = stat.tx_bytes
                     clock[(str(dpid), sw)] = time.time()
@@ -181,38 +204,18 @@ class DRLProactiveController(app_manager.RyuApp):
                 paths_hops[(src_mac, dst_mac)] = path
                 paths[(src_mac, dst_mac)] = proactive_paths_computation.add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac)
                 self.install_path(paths[(src_mac, dst_mac)], src_mac, dst_mac)
-
-    @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
-    def _state_change_handler(self, ev):
-        datapath = ev.datapath
-
-        if ev.state == MAIN_DISPATCHER:
-            if not datapath.id in self.datapaths:
-                print('Datapath {} registered.'.format(datapath.id))
-                self.datapaths[datapath.id] = datapath
-
-        elif ev.state == DEAD_DISPATCHER:
-            if datapath.id in self.datapaths:
-                print('Datapath {} unregistered.'.format(datapath.id))
-                del self.datapaths[datapath.id]
-                
-        if len(self.datapaths) == NUMBER_SWITCHES:
-            self.install_starting_rules()     
     
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        match = parser.OFPMatch()
+    def int_to_hex_mac(self, src_mac, dst_mac):
+        src_mac_int = int(src_mac[-2:])
+        src_mac_hex = "{:012x}".format(src_mac_int)
+        src_mac_hex_str = ":".join(src_mac_hex[i:i+2] for i in range(0, len(src_mac_hex), 2))
         
-        # installing a table-miss flow entry in the switch
+        dst_mac_int = int(dst_mac[-2:])
+        dst_mac_hex = "{:012x}".format(dst_mac_int)
+        dst_mac_hex_str = ":".join(dst_mac_hex[i:i+2] for i in range(0, len(dst_mac_hex), 2))
+        
+        return src_mac_hex_str, dst_mac_hex_str
 
-        actions = [parser.OFPActionOutput(
-            ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
-        
-        self.add_flow(datapath, 0, match, actions)
-        
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -240,18 +243,22 @@ class DRLProactiveController(app_manager.RyuApp):
         datapath.send_msg(mod)
         
     def install_path(self, p, src_mac, dst_mac):
+        src, dst = self.int_to_hex_mac(src_mac, dst_mac)
+    
         for sw, in_port, out_port in p:
             datapath = self.datapaths.get(int(sw))
             parser = datapath.ofproto_parser
-            match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
+            match = parser.OFPMatch(in_port=in_port, eth_src=src, eth_dst=dst)
             actions = [parser.OFPActionOutput(out_port)]
             self.add_flow(datapath, 1, match, actions)
             
     def uninstall_path(self, p, src_mac, dst_mac):
+        src, dst = self.int_to_hex_mac(src_mac, dst_mac)
+        
         for sw, in_port, _ in p:
             datapath = self.datapaths.get(int(sw))
             parser = datapath.ofproto_parser
-            match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
+            match = parser.OFPMatch(in_port=in_port, eth_src=src, eth_dst=dst)
             self.remove_flow(datapath, match)
 
     def install_starting_rules(self):
@@ -267,38 +274,3 @@ class DRLProactiveController(app_manager.RyuApp):
                         paths[(src_host, dst_host)] = proactive_paths_computation.add_ports_to_path(
                             path, host_to_switch_port, adjacency, src_host, dst_host)
                         self.install_path(paths[(src_host, dst_host)], src_host, dst_host)
-                    
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def _packet_in_handler(self, ev):
-        msg = ev.msg
-        dp = msg.datapath
-        ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
-        in_port = msg.match['in_port']
-        
-        pkt = packet.Packet(msg.data)
-        pkt = pkt.get_protocol(arp.arp)
-        if not pkt: 
-            return  
-        
-        src = pkt.src_mac
-        dst = host_ip_mac[pkt.dst_ip]
-        dpid = dp.id
-        
-        out_port = None
-        if paths.get((src, dst)) != None:
-            path = paths[(src, dst)]
-            for sw, _, _out in path:
-                if int(sw) == dpid:
-                    out_port = _out   
-   
-        data = None
-        if msg.buffer_id == ofp.OFP_NO_BUFFER:
-             data = msg.data
-
-        if out_port:
-            actions = [ofp_parser.OFPActionOutput(out_port)]
-            out = ofp_parser.OFPPacketOut(
-                datapath=dp, buffer_id=msg.buffer_id, in_port=in_port,
-                actions=actions, data=data)
-            dp.send_msg(out)

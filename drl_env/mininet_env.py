@@ -8,7 +8,7 @@ from time import sleep
 
 import proactive_mininet_api
 
-NUMBER_HOSTS = 8
+NUMBER_HOSTS = 13
 NUMBER_PATHS = 5
 REWARD_SCALE = NUMBER_HOSTS*NUMBER_HOSTS*NUMBER_PATHS
 
@@ -16,7 +16,7 @@ REWARD_SCALE = NUMBER_HOSTS*NUMBER_HOSTS*NUMBER_PATHS
 class MininetEnv(Env):
     def __init__(self):
         self.number_of_requests = 0
-        self.max_requests = 8
+        self.max_requests = 24
         self.done = False
         
         self.mininet_engine = proactive_mininet_api.MininetAPI(NUMBER_HOSTS, NUMBER_PATHS)
@@ -33,14 +33,9 @@ class MininetEnv(Env):
         self.mininet_engine.start_iperf(action)
         self.number_of_requests += 1
         
-        print("ACTION:", action)
-        print("REQUEST NUMBER:", self.number_of_requests)
-            
         reward = 0
-        self.done = False
-        info = {}
         
-        sleep(3)
+        sleep(5)
                 
         # state: read link stats
         self.state = self.mininet_engine.build_state()
@@ -49,27 +44,24 @@ class MininetEnv(Env):
         for src in range(NUMBER_HOSTS):
             for dst in range(NUMBER_HOSTS):
                 for path_number in range(NUMBER_PATHS):
-                    metric = self.state[src, dst, path_number]
-                    if metric != None:
-                        metric_percentage = metric
-                        if metric_percentage > 75:
+                    bw = self.state[src, dst, path_number]
+                    if bw != None:
+                        if bw > 75:
                             reward += 20
-                        elif metric_percentage > 50: 
+                        elif bw > 50: 
                             reward += 10
-                        elif metric_percentage > 25: 
+                        elif bw > 25: 
                             pass
-                        elif metric_percentage > 0: 
+                        elif bw > 0: 
                             reward -= 10
                         else:
-                            reward -= 20
-                            
-        print("REWARD:", reward/REWARD_SCALE)
+                            reward -= 50
                         
         if self.number_of_requests == self.max_requests:
-            sleep(31)
+            sleep(121)
             self.done = True
             
-        return self.state, reward/REWARD_SCALE, self.done, info
+        return self.state, reward/REWARD_SCALE, self.done, {}
     
     def render():
         pass

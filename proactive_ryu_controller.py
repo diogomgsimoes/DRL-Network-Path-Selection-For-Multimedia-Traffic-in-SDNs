@@ -5,10 +5,12 @@ from ryu.lib import hub
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.lib.packet import packet, arp
+from ryu.lib.packet import packet, arp, ethernet
+from ryu.lib.packet.packet import Packet
 from collections import defaultdict
 from operator import attrgetter
 import time
+from ryu.ofproto import ether
 
 import proactive_paths_computation
 
@@ -136,8 +138,7 @@ class ProactiveController(app_manager.RyuApp):
                 del self.datapaths[datapath.id]
                 
         if len(self.datapaths) == NUMBER_SWITCHES:
-            self.install_arp_rule()
-            # self.install_starting_rules()
+            self.install_starting_rules()
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -169,26 +170,30 @@ class ProactiveController(app_manager.RyuApp):
                             * 1024.0) - float(bw_used.get((str(dpid), sw), 0))
                         
                         # Static version
-                        costs[(str(dpid), sw)] = 1
+                        # costs[(str(dpid), sw)] = 1
                             
                         # Uncomment for DSP
                         # costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
                         
-                        # if int(number_flows.get((str(dpid), sw), 0)) == 0 and int(number_flows.get((str(dpid), sw), 0)) == 0:
-                        #     costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
-                        # else:
-                        #     costs[(str(dpid), sw)] = (int(number_flows.get((str(dpid), sw), 0))/2 + \
-                        #         int(number_flows.get((str(dpid), sw), 0))/2)/int(bw_available.get((str(dpid), sw), 0))
+                        if int(number_flows.get((str(dpid), sw), 0)) == 0 and int(number_flows.get((str(dpid), sw), 0)) == 0:
+                            costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
+                        else:
+                            costs[(str(dpid), sw)] = (int(number_flows.get((str(dpid), sw), 0))/2 + \
+                                int(number_flows.get((str(dpid), sw), 0))/2)/int(bw_available.get((str(dpid), sw), 0))
+                        
+                        if costs.get((str(dpid), sw)) < 0:
+                            costs[(str(dpid), sw)] = float("Inf")
                             
                     byte[(str(dpid), sw)] = stat.tx_bytes
                     clock[(str(dpid), sw)] = time.time()
                     
         if len(self.datapaths) == NUMBER_SWITCHES:
             load_active_hosts()
-            # for pair in active_hosts:
-            #     print(pair, paths_hops[(pair[0], pair[1])])
-            # self.update_paths()
-            # self.update_flows()
+            if len(active_hosts) == 24:
+                for item in active_hosts:
+                    print(paths[(item[0], item[1])])
+            self.update_paths()
+            self.update_flows()
        
     def install_starting_rules(self):
         global paths, paths_hops
@@ -252,16 +257,6 @@ class ProactiveController(app_manager.RyuApp):
         dst_mac_hex_str = ":".join(dst_mac_hex[i:i+2] for i in range(0, len(dst_mac_hex), 2))
         
         return src_mac_hex_str, dst_mac_hex_str
-
-    def install_arp_rule(self):
-        for sw in self.datapaths:
-            datapath = self.datapaths.get(int(sw))
-            ofp = datapath.ofproto
-            ofp_parser = datapath.ofproto_parser
-            
-            match = ofp_parser.OFPMatch(eth_type=0x0806)
-            actions = [ofp_parser.OFPActionOutput(ofp.OFPP_NORMAL, 0)]
-            self.add_flow(datapath, 32768, match, actions)
             
     def install_path(self, p, src_mac, dst_mac):
         src, dst = self.int_to_hex_mac(src_mac, dst_mac)
@@ -272,7 +267,7 @@ class ProactiveController(app_manager.RyuApp):
             
             match = parser.OFPMatch(in_port=in_port, eth_src=src, eth_dst=dst)
             actions = [parser.OFPActionOutput(out_port)]
-            self.add_flow(datapath, 1, match, actions)
+            self.add_flow(datapath, 32768, match, actions)
             
     def uninstall_path(self, p, src_mac, dst_mac):
         src, dst = self.int_to_hex_mac(src_mac, dst_mac)
@@ -308,45 +303,3 @@ class ProactiveController(app_manager.RyuApp):
                                 command=ofproto.OFPFC_DELETE, out_group=ofproto.OFPG_ANY, out_port=ofproto.OFPP_ANY)
             
         datapath.send_msg(mod)
-                               
-    # @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    # def packet_in_handler(self, ev):
-    #     msg = ev.msg
-    #     dp = msg.datapath
-    #     ofp = dp.ofproto
-    #     ofp_parser = dp.ofproto_parser
-    #     in_port = msg.match['in_port']
-        
-    #     pkt = packet.Packet(msg.data)
-    #     pkt = pkt.get_protocol(arp.arp)
-    #     if not pkt: 
-    #         return  
-        
-    #     # check if ip is correct
-    #     print(pkt)
-        
-    #     src = pkt.src_mac
-    #     src_mac_hex = src[-2:]
-    #     src_mac_int = int(src_mac_hex, 16)
-    #     src = src[:-2] + str(src_mac_int).zfill(2)
-        
-    #     dst = host_ip_mac[pkt.dst_ip]
-    #     dpid = dp.id
-        
-    #     out_port = None
-    #     if paths.get((src, dst)) != None:
-    #         path = paths[(src, dst)]
-    #         for sw, _, _out in path:
-    #             if int(sw) == dpid:
-    #                 out_port = _out   
-   
-    #     data = None 
-    #     if msg.buffer_id == ofp.OFP_NO_BUFFER:
-    #          data = msg.data
-
-    #     if out_port:
-    #         actions = [ofp_parser.OFPActionOutput(out_port)]
-    #         out = ofp_parser.OFPPacketOut(
-    #             datapath=dp, buffer_id=msg.buffer_id, in_port=in_port,
-    #             actions=actions, data=data)
-    #         dp.send_msg(out)

@@ -1,7 +1,3 @@
 # DRL-based Network Path Selection For Multimedia Traffic in SDNs #
 
-## DRL version: ##
-Scripts: proactive_drl_controller + proactive_topology_mininet + proactive_paths_computation + proactive_mininet_api + mininet_env for testing and training done in the notebook
-
-## Baseline version: ## 
-Scripts: proactive_ryu_controller + proactive_topology_mininet (for manual test) or proactive_baseline_performance_tester (for script test)
+This repository fullfils its supporting role to a master thesis on "Intelligent Routing for Software-Defined Media Networks". It explores two ways to optimize routing in the transport of multimedia content in SDNS. 

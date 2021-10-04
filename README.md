@@ -11,7 +11,7 @@ In the main folder, scripts that are required in both approaches can be found. A
 To simulate the link cost optimization algorithms, the user must run the Ryu controller script with the desired cost equation uncommented (there are three available) and the simulating script:
 
 Cmd tab 1:
-'''
+```
 ryu-manager --observe-links proactive_ryu_controler.py
-'''
+```
 

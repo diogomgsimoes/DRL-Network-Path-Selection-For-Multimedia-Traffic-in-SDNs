@@ -6,3 +6,4 @@ These approaches at routing optimization explored in this project are divided in
   - link_cost_routing_optimization,
   - drl_routing_optimization.
 
+In the main folder, scripts that are required in both approaches can be found.

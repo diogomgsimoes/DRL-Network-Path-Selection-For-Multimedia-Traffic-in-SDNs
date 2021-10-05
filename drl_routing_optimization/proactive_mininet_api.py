@@ -6,12 +6,15 @@ sys.path.insert(0, '/home/dmg/Desktop/DRLResearch/thesis_env/lib/python3.8/site-
 import time
 import numpy as np
 import random
+import copy
 
 import proactive_paths_computation
 import proactive_topology_mininet
 
 paths = {}
 bw = {}
+bw_capacity = {}
+state_helper = {}
 controller_stats = {}
 busy_ports = [6631, 6633]
 host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', 'H11'), ('H4', 'H9'), ('H2', 'H8'), ('H1', 'H11'),
@@ -22,54 +25,25 @@ host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', '
 
 class MininetAPI(object):    
     def __init__(self, n_hosts, n_paths):
-        global paths
+        global paths, bw_capacity, bw
         
         self.n_hosts = n_hosts
         self.n_paths = n_paths
         
         # build networkx graph
         self.G = proactive_paths_computation.build_graph_from_txt()
-        self.fill_bw()
         
         # build mininet net and install ARP rules
-        _, self.net = proactive_topology_mininet.start_network()
+        bw_capacity, self.net = proactive_topology_mininet.start_network()
+        bw = copy.deepcopy(bw_capacity)
         self.add_arps()
         
         # get K-shortest paths between each hosts pair
         paths = proactive_paths_computation.get_k_shortest_paths(self.G, self.n_hosts, self.n_paths)
-        
-        # socket to receive switch stats from the controller 
-        # self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.s.connect(('127.0.0.1', 6631))
-        
-        # self.t = threading.Thread(target=self.read_from_socket)
-        # self.t.start()
-        
-    def fill_bw(self):
-        global bw
-        
-        for conn in list(self.G.edges()):
-            bw[conn] = 100
-            bw[conn[::-1]] = 100
-    
-    # fill the controller_stats dict from socket
-    # def read_from_socket(self):
-    #     global controller_stats
-        
-    #     while True:
-    #         size = int.from_bytes(self.s.recv(4), 'little')
-    #         data = self.s.recv(size)
-    #         decoded_data = data.decode('utf-8')
-            
-    #         items = decoded_data.split("/")
-    #         for item in items:
-    #             if len(item) > 0:
-    #                 elements = item.split("_")
-    #                 controller_stats[(elements[0], elements[1])] = elements[2]
     
     # build the network state using the controller stats and paths dict
     def build_state(self):
-        state = np.empty((self.n_hosts,self.n_hosts,self.n_paths,1), dtype=object)
+        state = np.empty((self.n_hosts, self.n_hosts, self.n_paths, 1), dtype=object)
         
         for src in range(1, self.n_hosts+1):
             h_src = "H{}".format(src)
@@ -78,7 +52,7 @@ class MininetAPI(object):
                 min_value = float('Inf')
                 cnt = 0
                 if len(paths[(h_src, h_dst)]) == 1:
-                    if paths[(h_src, h_dst)] == []:
+                    if not paths[(h_src, h_dst)]:
                         for idx in range(self.n_paths):
                             state[src-1, dst-1, idx] = 1
                     else: 
@@ -97,9 +71,8 @@ class MininetAPI(object):
                             if stats:
                                 if float(stats) < float(min_value):
                                     min_value = bw[(str(_s1), str(_s2))]
+                                    state_helper[str(src) + "_" + str(dst) + "_" + str(cnt)] = str(s1) + "_" + str(s2)
                         
-                        if float(min_value) == float('Inf'):
-                            print("Inf:", _s1, _s2, path, stats, cnt, h_src, h_dst)
                         state[src-1, dst-1, cnt] = float(min_value)
                         cnt += 1
                         
@@ -107,6 +80,17 @@ class MininetAPI(object):
                         state[src-1, dst-1, idx] = 1
                     
         return state
+    
+    def get_percentage(self, src, dst, bw):
+        src_str = "S" + str(src)
+        dst_str = "S" + str(dst)
+        if bw_capacity.get((src_str, dst_str)):
+            return (bw / bw_capacity.get((src_str, dst_str))) * 100
+        else:
+            return None
+
+    def get_state_helper(self):
+        return state_helper
     
     # send paths to the controller for rule installation
     def send_path_to_controller(self, action, client, server):
@@ -138,7 +122,7 @@ class MininetAPI(object):
             if bw.get((str(s2), str(s1))):
                 bw[(str(s2), str(s1))] -= 15
                 if bw[(str(s2), str(s1))] == 0:
-                    bw[(str(s2), str(s1))] = 1
+                    bw[(str(s2), str(s1))] = 1  
      
     # start traffic flows with iperf
     def start_iperf(self, action):
@@ -151,7 +135,7 @@ class MininetAPI(object):
 
         dst_ip = self.net.getNodeByName(hosts_pair[1]).IP()
         self.net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
-        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -J -b 15M -t 90 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
+        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -J -b 15M -t 180 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
     
     # define starting ARP rules
     def add_arps(self):
@@ -169,7 +153,7 @@ class MininetAPI(object):
     def reset_measures(self):
         global busy_ports, host_pairs, bw
         
-        self.fill_bw()
+        bw = copy.deepcopy(bw_capacity)
         
         os.system("rm -f ./*.log")
         open('drl_active_paths.txt', 'w').close()  

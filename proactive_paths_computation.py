@@ -4,9 +4,10 @@ sys.path.insert(0, '/home/dmg/Desktop/DRLResearch/thesis_env/lib/python3.8/site-
 import networkx as nx
 from itertools import islice
 
-TOPOLOGY_FILE_NAME = 'topology.txt'
 
+TOPOLOGY_FILE_NAME = 'topology_arpanet.txt'
 
+# Build a networkX graph with or without predefined link costs
 def build_graph_from_txt(weights=None):
     graph = nx.Graph()
     
@@ -23,14 +24,15 @@ def build_graph_from_txt(weights=None):
                     graph.add_edge(nodes[0], nodes[1], weight=weights[(sw1, sw2)])
                     graph.add_edge(nodes[1], nodes[0], weight=weights[(sw2, sw1)])
                 else:
-                    graph.add_edge(nodes[0], nodes[1], weigth=1000000)
-                    graph.add_edge(nodes[1], nodes[0], weigth=1000000)
+                    graph.add_edge(nodes[0], nodes[1], weigth=1)
+                    graph.add_edge(nodes[1], nodes[0], weigth=1)
             else:
-                graph.add_edge(nodes[0], nodes[1], weigth=1000000)
-                graph.add_edge(nodes[1], nodes[0], weigth=1000000)
+                graph.add_edge(nodes[0], nodes[1], weigth=1)
+                graph.add_edge(nodes[1], nodes[0], weigth=1)
             
     return graph
 
+# Get the k-shortest paths between each pair of hosts
 def get_k_shortest_paths(graph, number_hosts, number_paths):
     paths = {}
     
@@ -57,6 +59,8 @@ def k_shortest_paths(graph, source, target, k):
         
     return [path[1:-1] for path in calc]
 
+# Transform MAC addresses into "Hx" notation
+# 00:00:00:00:00:07 -> H7
 def get_src_dst_names(src_mac, dst_mac):
     src = "H" + src_mac[-2:]
     if src[-1] != "0" and "0" in src:
@@ -68,15 +72,14 @@ def get_src_dst_names(src_mac, dst_mac):
         
     return (src, dst)
 
+# Run Dijkstra between two hosts
 def dijkstra_from_macs(graph, src_mac, dst_mac, host_to_switch_port, adjacency):
     (src, dst) = get_src_dst_names(src_mac, dst_mac)
-        
     path = nx.dijkstra_path(graph, src, dst)
-    
-    # path_tuples = add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac)
     
     return path
     
+# Add in and out ports to the path creating tuples ("switch", "in_port", "out_port")
 def add_ports_to_path(path, host_to_switch_port, adjacency, src_mac, dst_mac):
     p_tuples = []
     

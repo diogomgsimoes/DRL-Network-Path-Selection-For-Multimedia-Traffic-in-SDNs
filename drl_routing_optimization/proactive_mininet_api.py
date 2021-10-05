@@ -14,13 +14,10 @@ paths = {}
 bw = {}
 controller_stats = {}
 busy_ports = [6631, 6633]
-host_pairs = [('H1', 'H13'), ('H2', 'H9'), ('H4', 'H10'), ('H3', 'H6'), ('H5', 'H10'), ('H3', 'H12'), ('H1', 'H11'), ('H7', 'H9'), 
-            ('H1', 'H8'), ('H2', 'H10'), ('H4', 'H13'), ('H3', 'H13'), ('H5', 'H12'), ('H3', 'H9'), ('H1', 'H9'), ('H7', 'H13'),
-            ('H1', 'H12'), ('H1', 'H10'), ('H4', 'H9'), ('H4', 'H11'), ('H4', 'H12'), ('H7', 'H8'), ('H7', 'H10'), ('H7', 'H11')]
-
-#[('H1', 'H13'), ('H2', 'H9'), ('H4', 'H10'), ('H3', 'H6'), ('H5', 'H10'), ('H3', 'H12'), ('H1', 'H11'), ('H7', 'H9'),
-#                ('H1', 'H8'), ('H2', 'H10'), ('H4', 'H13'), ('H3', 'H13'), ('H5', 'H12'), ('H3', 'H9'), ('H1', 'H9'), ('H7', 'H13'),
-#                ('H2', 'H8'), ('H2', 'H13'), ('H4', 'H6'), ('H4', 'H11'), ('H5', 'H6'), ('H5', 'H13'), ('H7', 'H6'), ('H7', 'H11')]
+host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', 'H11'), ('H4', 'H9'), ('H2', 'H8'), ('H1', 'H11'),
+             ('H1', 'H9'), ('H4', 'H13'), ('H4', 'H10'), ('H4', 'H7'), ('H3', 'H8'), ('H2', 'H10'), ('H2', 'H7'), ('H1', 'H8'), 
+             ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'), ('H1', 'H7'), ('H4', 'H6'), 
+             ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'), ('H5', 'H8'), ('H3', 'H12')]
 
 
 class MininetAPI(object):    
@@ -34,9 +31,8 @@ class MininetAPI(object):
         self.G = proactive_paths_computation.build_graph_from_txt()
         self.fill_bw()
         
-        # build mininet net
-        self.net = proactive_topology_mininet.start_network()
-        
+        # build mininet net and install ARP rules
+        _, self.net = proactive_topology_mininet.start_network()
         self.add_arps()
         
         # get K-shortest paths between each hosts pair
@@ -54,6 +50,7 @@ class MininetAPI(object):
         
         for conn in list(self.G.edges()):
             bw[conn] = 100
+            bw[conn[::-1]] = 100
     
     # fill the controller_stats dict from socket
     # def read_from_socket(self):
@@ -92,13 +89,17 @@ class MininetAPI(object):
                     for path in paths[(h_src, h_dst)]:
                         path = path[1:-1]
                         for s1, s2 in zip(path[:-1], path[1:]):
-                            _s1 = "S" + str(s1)
-                            _s2 = "S" + str(s2)
+                            if "S" not in str(s1):
+                                _s1 = "S" + str(s1)
+                            if "S" not in str(s2):
+                                _s2 = "S" + str(s2)
                             stats = bw.get((str(_s1), str(_s2)))
                             if stats:
                                 if float(stats) < float(min_value):
                                     min_value = bw[(str(_s1), str(_s2))]
-                    
+                        
+                        if float(min_value) == float('Inf'):
+                            print("Inf:", _s1, _s2, path, stats, cnt, h_src, h_dst)
                         state[src-1, dst-1, cnt] = float(min_value)
                         cnt += 1
                         
@@ -128,8 +129,6 @@ class MininetAPI(object):
             if 'H' not in str(path[idx]):
                 path[idx] = "S" + str(path[idx])
         
-        print(path)
-        
         _path = path[1:-1]
         for s1, s2 in zip(_path[:-1], _path[1:]):
             if bw.get((str(s1), str(s2))):
@@ -152,7 +151,7 @@ class MininetAPI(object):
 
         dst_ip = self.net.getNodeByName(hosts_pair[1]).IP()
         self.net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
-        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 15M -t 120 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
+        self.net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -J -b 15M -t 90 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
     
     # define starting ARP rules
     def add_arps(self):
@@ -175,6 +174,7 @@ class MininetAPI(object):
         os.system("rm -f ./*.log")
         open('drl_active_paths.txt', 'w').close()  
         busy_ports = [6631, 6633]
-        host_pairs = [('H1', 'H13'), ('H2', 'H9'), ('H4', 'H10'), ('H3', 'H6'), ('H5', 'H10'), ('H3', 'H12'), ('H1', 'H11'), ('H7', 'H9'), 
-            ('H1', 'H8'), ('H2', 'H10'), ('H4', 'H13'), ('H3', 'H13'), ('H5', 'H12'), ('H3', 'H9'), ('H1', 'H9'), ('H7', 'H13'),
-            ('H1', 'H12'), ('H1', 'H10'), ('H4', 'H9'), ('H4', 'H11'), ('H4', 'H12'), ('H7', 'H8'), ('H7', 'H10'), ('H7', 'H11')]
+        host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', 'H11'), ('H4', 'H9'), ('H2', 'H8'), ('H1', 'H11'),
+             ('H1', 'H9'), ('H4', 'H13'), ('H4', 'H10'), ('H4', 'H7'), ('H3', 'H8'), ('H2', 'H10'), ('H2', 'H7'), ('H1', 'H8'), 
+             ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'), ('H1', 'H7'), ('H4', 'H6'), 
+             ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'), ('H5', 'H8'), ('H3', 'H12')]

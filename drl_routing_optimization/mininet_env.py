@@ -16,7 +16,7 @@ REWARD_SCALE = NUMBER_HOSTS*NUMBER_HOSTS*NUMBER_PATHS
 class MininetEnv(Env):
     def __init__(self):
         self.number_of_requests = 0
-        self.max_requests = 24
+        self.max_requests = 32
         self.done = False
         
         self.mininet_engine = proactive_mininet_api.MininetAPI(NUMBER_HOSTS, NUMBER_PATHS)
@@ -25,40 +25,42 @@ class MininetEnv(Env):
             low=np.zeros((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), dtype=np.float32), \
             high=np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 100, dtype=np.float32), dtype=np.float32)
         
-        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 100, dtype=np.float32)
-                
         self.action_space = spaces.Discrete(NUMBER_PATHS)
+        self.state = self.mininet_engine.build_state()
+
     
     def step(self, action):
         self.mininet_engine.start_iperf(action)
         self.number_of_requests += 1
-        
         reward = 0
         
         sleep(5)
                 
-        # state: read link stats
         self.state = self.mininet_engine.build_state()
-    
-        # reward: evaluate state
         for src in range(NUMBER_HOSTS):
             for dst in range(NUMBER_HOSTS):
                 for path_number in range(NUMBER_PATHS):
                     bw = self.state[src, dst, path_number]
-                    if bw != None:
-                        if bw > 75:
-                            reward += 20
-                        elif bw > 50: 
-                            reward += 10
-                        elif bw > 25: 
+                    # link = self.mininet_engine.get_state_helper().get(str(src + 1) + "_" + str(dst + 1) + "_" + str(path_number))
+                    # if link:
+                    #    ex_link = link.split("_")
+                    # bw_percentage = self.mininet_engine.get_percentage(ex_link[0], ex_link[1], bw[0])
+                    bw_percentage = bw
+                    if bw_percentage is not None:
+                        if bw_percentage > 75:
+                            reward += 50
+                        elif bw_percentage > 50:
+                            reward += 30
+                        elif bw_percentage > 25:
                             pass
-                        elif bw > 0: 
+                        elif bw_percentage > 0:
                             reward -= 10
                         else:
-                            reward -= 50
+                            reward -= 100
+
                         
         if self.number_of_requests == self.max_requests:
-            sleep(121)
+            sleep(91)
             self.done = True
             
         return self.state, reward/REWARD_SCALE, self.done, {}
@@ -71,8 +73,8 @@ class MininetEnv(Env):
     
     def reset(self):  
         self.done = False
-        self.state = np.full((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), 100, dtype=np.float32)
-        self.number_of_requests = 0
         self.mininet_engine.reset_measures()
-        
+        self.state = self.mininet_engine.build_state()
+        self.number_of_requests = 0
+
         return self.state

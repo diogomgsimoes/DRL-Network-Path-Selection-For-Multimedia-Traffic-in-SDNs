@@ -46,7 +46,7 @@ The current iPerf simulation settings are:
  - Interval of 5 seconds between requests;
  - 32 concurrent requests.
 
-To train the different agents in each setup and create a model to use in the model evaluation script, the respetive file must be ran using:
+To train the different agents in each setup (the four possible setups are detailed in the thesis) and create a model to use in the model evaluation script, the respetive file must be ran using:
 ```
 sudo python3.8 -E <agent_filename>.py
 ```

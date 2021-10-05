@@ -48,4 +48,7 @@ sudo python3.8 -E max_centrality_host_pairs.py
 
 The resulting output is used in some way in files such as "mininet_env.py", "proactive_mininet_api.py" and "proactive_baseline_performance_tester.py".
 
-To analyze the simulations' results, an helper script ("read_iperfs.py") can be used, which reads the iPerf report json file and outputs only the bitrate and RTT metrics we were interested in.
+To analyze the simulations' results, an helper script can be used, which reads the iPerf report json file and outputs only the bitrate and RTT metrics we were interested in.
+```
+sudo python3.8 -E read_iperfs.py
+```

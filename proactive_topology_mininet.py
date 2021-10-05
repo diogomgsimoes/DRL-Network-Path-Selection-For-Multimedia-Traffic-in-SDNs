@@ -9,7 +9,9 @@ from mininet.link import TCLink
 
 
 TOPOLOGY_FILE_NAME = 'topology_arpanet.txt'
-DICT_OPT = dict(bw=100, delay='1ms', loss=0)
+
+
+bw_capacity = {}
 
 
 def add_host(net, host):
@@ -20,11 +22,13 @@ def add_switch(net, switch):
     if switch not in net.keys():
         net.addSwitch(switch, cls=OVSSwitch) 
 
-def add_link(net, src, dst):
+def add_link(net, src, dst, link_bw):
     if len(net.linksBetween(net.getNodeByName(src), net.getNodeByName(dst))) == 0:
-        net.addLink(net.getNodeByName(src), net.getNodeByName(dst), **DICT_OPT)
+        net.addLink(net.getNodeByName(src), net.getNodeByName(dst), **dict(bw=link_bw, delay='1ms', loss=0))
 
 def build_topology_from_txt(net):
+    global bw_capacity
+    
     with open(TOPOLOGY_FILE_NAME, 'r') as topo:
         for row in topo.readlines():
             row_data = row.split()
@@ -33,7 +37,10 @@ def build_topology_from_txt(net):
                     add_host(net, node)
                 elif 'S' in node:
                     add_switch(net, node)
-            add_link(net, row_data[0], row_data[1])
+            link_bw = int(row_data[2])
+            add_link(net, row_data[0], row_data[1], link_bw)
+            bw_capacity[(row_data[0], row_data[1])] = link_bw
+            bw_capacity[(row_data[1], row_data[0])] = link_bw
 
 def start_network():
     setLogLevel('info')
@@ -44,10 +51,10 @@ def start_network():
     net.addController('c0', controller=RemoteController, ip='127.0.0.1', port=6633)
     net.start()
     
-    return net
+    return bw_capacity, net
     
 if __name__ == '__main__':
-    net = start_network()
+    bw_capacity, net = start_network()
     
     CLI(net)
     net.stop()

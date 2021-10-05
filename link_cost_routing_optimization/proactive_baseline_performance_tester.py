@@ -11,11 +11,10 @@ active_comms = []
 last_comms = []
 shortest_paths = {}
 busy_ports = [6631, 6633]
-host_pairs = [('H1', 'H13'), ('H2', 'H9'), ('H4', 'H10'), ('H3', 'H6'), ('H5', 'H10'), ('H3', 'H12'), ('H1', 'H11'), ('H7', 'H9'), 
-            ('H1', 'H8'), ('H2', 'H10'), ('H4', 'H13'), ('H3', 'H13'), ('H5', 'H12'), ('H3', 'H9'), ('H1', 'H9'), ('H7', 'H13'), 
-            ('H1', 'H12'), ('H1', 'H10'), ('H4', 'H9'), ('H4', 'H11'), ('H4', 'H12'), ('H7', 'H8'), ('H7', 'H10'), ('H7', 'H11')]
-
-# host_pairs = [('H1', 'H4'), ('H1', 'H5'), ('H2', 'H5'), ('H2', 'H8'), ('H3', 'H6'), ('H3', 'H7'), ('H4', 'H5'), ('H4', 'H8')]
+host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', 'H11'), ('H4', 'H9'), ('H2', 'H8'), ('H1', 'H11'),
+           ('H1', 'H9'), ('H4', 'H13'), ('H4', 'H10'), ('H4', 'H7'), ('H3', 'H8'), ('H2', 'H10'), ('H2', 'H7'), ('H1', 'H8'),
+           ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'), ('H1', 'H7'), ('H4', 'H6'), 
+           ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'), ('H5', 'H8'), ('H3', 'H12')]
 
 
 def simulate(net):
@@ -34,12 +33,13 @@ def simulate(net):
 
     dst_ip = net.getNodeByName(hosts_pair[1]).IP()
     net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
-    net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 15M -t 120 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
+    time.sleep(0.1)
+    net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 15M -J -t 90 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
     
 def set_active_paths(pair):
     global active_comms
     active_comms.append(pair) 
-    time.sleep(120)
+    time.sleep(90)
     active_comms.remove(pair)
     print("iperf ended for ", pair)
 
@@ -57,6 +57,7 @@ def transfer_active_paths():
                 
             last_comms = copy.deepcopy(active_comms)
             
+# Proactively install ARP rules to avoid ARP flooding
 def add_arps(net):
     for id_src in range(1, 14):
         for id_dst in range(1, 14):
@@ -74,7 +75,7 @@ def clear_structures():
 
 
 if __name__ == "__main__":
-    net = proactive_topology_mininet.start_network()
+    _, net = proactive_topology_mininet.start_network()
     
     clear_structures()
     add_arps(net)

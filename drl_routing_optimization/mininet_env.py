@@ -41,11 +41,10 @@ class MininetEnv(Env):
             for dst in range(NUMBER_HOSTS):
                 for path_number in range(NUMBER_PATHS):
                     bw = self.state[src, dst, path_number]
-                    # link = self.mininet_engine.get_state_helper().get(str(src + 1) + "_" + str(dst + 1) + "_" + str(path_number))
-                    # if link:
-                    #    ex_link = link.split("_")
-                    # bw_percentage = self.mininet_engine.get_percentage(ex_link[0], ex_link[1], bw[0])
-                    bw_percentage = bw
+                    link = self.mininet_engine.get_state_helper().get(str(src + 1) + "_" + str(dst + 1) + "_" + str(path_number))
+                    if link:
+                       ex_link = link.split("_")
+                    bw_percentage = self.mininet_engine.get_percentage(ex_link[0], ex_link[1], bw[0])
                     if bw_percentage is not None:
                         if bw_percentage > 75:
                             reward += 50
@@ -60,7 +59,7 @@ class MininetEnv(Env):
 
                         
         if self.number_of_requests == self.max_requests:
-            sleep(91)
+            sleep(181)
             self.done = True
             
         return self.state, reward/REWARD_SCALE, self.done, {}

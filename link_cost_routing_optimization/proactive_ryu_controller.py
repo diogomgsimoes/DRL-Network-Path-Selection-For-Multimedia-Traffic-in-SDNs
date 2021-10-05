@@ -1,16 +1,12 @@
-from ryu import ofproto
 from ryu.base import app_manager
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import hub
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.lib.packet import packet, arp, ethernet
-from ryu.lib.packet.packet import Packet
 from collections import defaultdict
 from operator import attrgetter
 import time
-from ryu.ofproto import ether
 
 import proactive_paths_computation
 
@@ -66,6 +62,7 @@ def topology_discovery():
                 switch_ports[sw2] = switch_ports[sw2] + 1 if switch_ports.get(sw2) else 1
                 adjacency[(sw1, sw2)] = int(switch_ports[sw1])
                 adjacency[(sw2, sw1)] = int(switch_ports[sw2])
+                # do not divide by 100
                 bw[(sw1, sw2)] = float(row_data[2])
                 bw[(sw2, sw1)] = float(row_data[2])
                 number_flows[(sw1, sw2)] = 0
@@ -169,17 +166,18 @@ class ProactiveController(app_manager.RyuApp):
                         bw_available[(str(dpid), sw)] = int(bw.get((str(dpid), sw), 0) \
                             * 1024.0) - float(bw_used.get((str(dpid), sw), 0))
                         
-                        # Static version
-                        # costs[(str(dpid), sw)] = 1
+                        # Uncomment for MHA
+                        costs[(str(dpid), sw)] = 1
                             
                         # Uncomment for DSP
                         # costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
                         
-                        if int(number_flows.get((str(dpid), sw), 0)) == 0 and int(number_flows.get((str(dpid), sw), 0)) == 0:
-                            costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
-                        else:
-                            costs[(str(dpid), sw)] = (int(number_flows.get((str(dpid), sw), 0))/2 + \
-                                int(number_flows.get((str(dpid), sw), 0))/2)/int(bw_available.get((str(dpid), sw), 0))
+                        # Uncomment for LIOA
+                        # if int(number_flows.get((str(dpid), sw), 0)) == 0 and int(number_flows.get((str(dpid), sw), 0)) == 0:
+                        #     costs[(str(dpid), sw)] = 1/int(bw_available.get((str(dpid), sw), 0))
+                        # else:
+                        #     costs[(str(dpid), sw)] = (int(number_flows.get((str(dpid), sw), 0))/2 + \
+                        #         int(number_flows.get((str(dpid), sw), 0))/2)/int(bw_available.get((str(dpid), sw), 0))
                         
                         if costs.get((str(dpid), sw)) < 0:
                             costs[(str(dpid), sw)] = float("Inf")
@@ -189,9 +187,6 @@ class ProactiveController(app_manager.RyuApp):
                     
         if len(self.datapaths) == NUMBER_SWITCHES:
             load_active_hosts()
-            if len(active_hosts) == 24:
-                for item in active_hosts:
-                    print(paths[(item[0], item[1])])
             self.update_paths()
             self.update_flows()
        

@@ -34,12 +34,12 @@ def simulate(net):
     dst_ip = net.getNodeByName(hosts_pair[1]).IP()
     net.getNodeByName(hosts_pair[1]).cmd('iperf3 -s -i 1 -p {} >& {}_server_{}.log &'.format(port, hosts_pair[1], port))
     time.sleep(0.1)
-    net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 15M -J -t 90 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
+    net.getNodeByName(hosts_pair[0]).cmd('iperf3 -c {} -b 15M -J -t 180 -p {} >& {}_{}_client_{}.log &'.format(dst_ip, port, hosts_pair[0], hosts_pair[1], port))
     
 def set_active_paths(pair):
     global active_comms
     active_comms.append(pair) 
-    time.sleep(90)
+    time.sleep(180)
     active_comms.remove(pair)
     print("iperf ended for ", pair)
 

@@ -36,6 +36,8 @@ Terminal 2:
 sudo python3.8 -E model_evaluation.py
 ```
 
+In this second script, the file must be adapted to the agent being simulated (DQN, DDQN or Dueling DQN). The respective neural network constructor and parameters must be defined according to the model parameters file that will be tested. 
+
 To train the different agents in each setup and create a model to use in the model evaluation script, the respetive file must be ran using:
 ```
 sudo python3.8 -E <agent_filename>.py

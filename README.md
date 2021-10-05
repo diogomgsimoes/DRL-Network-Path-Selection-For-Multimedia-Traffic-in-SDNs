@@ -52,3 +52,5 @@ To analyze the simulations' results, an helper script can be used, which reads t
 ```
 sudo python3.8 -E read_iperfs.py
 ```
+
+Lastly, the folder "agents" and the notebook "DRL_routing" were used during the development phase, but not add anything to the solution presented. They were only kept in this repository as a past work record.

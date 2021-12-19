@@ -49,41 +49,52 @@ class MininetAPI(object):
             h_src = "H{}".format(src)
             for dst in range(1, self.n_hosts+1):
                 h_dst = "H{}".format(dst)
-                min_value = float('Inf')
                 cnt = 0
                 if len(paths[(h_src, h_dst)]) == 1:
                     if not paths[(h_src, h_dst)]:
                         for idx in range(self.n_paths):
-                            state[src-1, dst-1, idx] = 1
+                            state[src-1, dst-1, idx] = -1
                     else: 
-                        state[src-1, dst-1, 0] = 100
+                        state[src-1, dst-1, 0] = 1000
                         for idx in range(1, self.n_paths):
-                            state[src-1, dst-1, idx] = 1
+                            state[src-1, dst-1, idx] = -1
                 else:
                     for path in paths[(h_src, h_dst)]:
-                        path = path[1:-1]
+                        min_value = float('Inf')
                         for s1, s2 in zip(path[:-1], path[1:]):
-                            if "S" not in str(s1):
+                            if "H" not in str(s1) and "S" not in str(s1):
                                 _s1 = "S" + str(s1)
-                            if "S" not in str(s2):
+                            else:
+                                _s1 = str(s1)
+                            if "H" not in str(s2) and "S" not in str(s2):
                                 _s2 = "S" + str(s2)
+                            else: 
+                                _s2 = str(s2)                              
                             stats = bw.get((str(_s1), str(_s2)))
                             if stats:
                                 if float(stats) < float(min_value):
                                     min_value = bw[(str(_s1), str(_s2))]
-                                    state_helper[str(src) + "_" + str(dst) + "_" + str(cnt)] = str(s1) + "_" + str(s2)
+                                    state_helper[str(src) + "_" + str(dst) + "_" + str(cnt)] = str(s1) + "_" + str(s2) 
                         
                         state[src-1, dst-1, cnt] = float(min_value)
                         cnt += 1
                         
                     for idx in range(len(paths[(h_src, h_dst)]), self.n_paths):
-                        state[src-1, dst-1, idx] = 1
+                        state[src-1, dst-1, idx] = -1
                     
         return state
     
     def get_percentage(self, src, dst, bw):
-        src_str = "S" + str(src)
-        dst_str = "S" + str(dst)
+        if "H" not in str(src) and "S" not in str(src): 
+            src_str = "S" + str(src)
+        else: 
+            src_str = src
+    
+        if "H" not in str(dst) and "S" not in str(dst):
+            dst_str = "S" + str(dst)
+        else:
+            dst_str = dst
+            
         if bw_capacity.get((src_str, dst_str)):
             return (bw / bw_capacity.get((src_str, dst_str))) * 100
         else:

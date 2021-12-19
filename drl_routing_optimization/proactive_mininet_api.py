@@ -121,11 +121,10 @@ class MininetAPI(object):
         time.sleep(1)
         
         for idx in range(len(path)):
-            if 'H' not in str(path[idx]):
+            if 'H' not in str(path[idx]) and 'S' not in str(path[idx]):
                 path[idx] = "S" + str(path[idx])
         
-        _path = path[1:-1]
-        for s1, s2 in zip(_path[:-1], _path[1:]):
+        for s1, s2 in zip(path[:-1], path[1:]):
             if bw.get((str(s1), str(s2))):
                 bw[(str(s1), str(s2))] -= 15
                 if bw[(str(s1), str(s2))] == 0:
@@ -133,7 +132,7 @@ class MininetAPI(object):
             if bw.get((str(s2), str(s1))):
                 bw[(str(s2), str(s1))] -= 15
                 if bw[(str(s2), str(s1))] == 0:
-                    bw[(str(s2), str(s1))] = 1  
+                    bw[(str(s2), str(s1))] = 1 
      
     # start traffic flows with iperf
     def start_iperf(self, action):

@@ -296,7 +296,7 @@ begin_learn = False
 episode_reward = 0
 total_rewards = []
 
-for epoch in range(5000):
+for epoch in range(7000):
     state = env.reset()
     _state = torch.flatten(torch.from_numpy(state.astype(np.float32))).reshape(1, n_state)
     episode_reward = 0

@@ -31,7 +31,7 @@ class DRLEngine():
         
         self.srcs = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6']
         self.dsts = ['H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13']
-        self.requests_bw = [3, 5, 10, 15, 18]
+        self.requests_bw = [5, 10, 15, 18, 20]
 
         self.upload_topology()
         self.build_graph()

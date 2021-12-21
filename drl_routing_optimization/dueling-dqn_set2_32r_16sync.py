@@ -19,18 +19,22 @@ NUMBER_OF_PATHS = 5
 REWARD_SCALE = NUMBER_OF_HOSTS * NUMBER_OF_HOSTS * NUMBER_OF_PATHS
 
 
-class DRLEngine():
+class DRLEngine:
     def __init__(self):
         self.graph = nx.Graph()
         self.link_bw_capacity = {}
         self.current_link_bw = {}
-        self.hosts = {}
         self.paths = {}
+        self.state_helper = {}
 
-        self.host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', 'H11'), ('H4', 'H9'), ('H2', 'H8'), ('H1', 'H11'),
-                        ('H1', 'H9'), ('H4', 'H13'), ('H4', 'H10'), ('H4', 'H7'), ('H3', 'H8'), ('H2', 'H10'), ('H2', 'H7'), ('H1', 'H8'),
-                        ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'), ('H1', 'H7'), ('H4', 'H6'),
-                        ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'), ('H5', 'H8'), ('H3', 'H12')]
+        self.host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', 'H11'), ('H4', 'H9'),
+                           ('H2', 'H8'), ('H1', 'H11'),
+                           ('H1', 'H9'), ('H4', 'H13'), ('H4', 'H10'), ('H4', 'H7'), ('H3', 'H8'), ('H2', 'H10'),
+                           ('H2', 'H7'), ('H1', 'H8'),
+                           ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'),
+                           ('H1', 'H7'), ('H4', 'H6'),
+                           ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'),
+                           ('H5', 'H8'), ('H3', 'H12')]
 
         self.upload_topology()
         self.build_graph()
@@ -40,13 +44,8 @@ class DRLEngine():
         with open(TOPOLOGY_FILE_NAME, 'r') as topo:
             for row in topo.readlines():
                 row_data = row.split()
-                if 'H' in row_data[0]:
-                    self.hosts[row_data[0]] = row_data[1].replace("S", "")
-                elif 'S' in row_data[0]:
-                    src_id = row_data[0].replace("S", "")
-                    dst_id = row_data[1].replace("S", "")
-                    self.link_bw_capacity[(src_id, dst_id)] = int(row_data[2])
-                    self.link_bw_capacity[(dst_id, src_id)] = int(row_data[2])
+                self.link_bw_capacity[(row_data[0], row_data[1])] = int(row_data[2])
+                self.link_bw_capacity[(row_data[1], row_data[0])] = int(row_data[2])
 
         self.current_link_bw = copy.deepcopy(self.link_bw_capacity)
 
@@ -74,28 +73,30 @@ class DRLEngine():
                 dst = "H{}".format(dst_host_id)
                 if self.graph.has_node(src) and self.graph.has_node(dst):
                     self.paths[(src, dst)] = self.k_shortest_paths(self.graph, src, dst, NUMBER_OF_PATHS)
-                    for path in self.paths[(src, dst)]:
-                        if len(path) != 0:
-                            for i in range(0, len(path)):
-                                if "S" in path[i]:
-                                    path[i] = path[i].replace("S", "")
-                                    path[i] = int(path[i])
 
     def make_reservation(self, path_id):
-        random.shuffle(self.host_pairs)
         pair = self.host_pairs.pop(0)
-        path = self.paths[(pair[0], pair[1])][path_id][1:-1]
-        request_bw = 10
+        path = self.paths[(pair[0], pair[1])][path_id]
+        request_bw = 15
 
         for s1, s2 in zip(path[:-1], path[1:]):
-            if self.current_link_bw.get((str(s1), str(s2))):
-                self.current_link_bw[(str(s1), str(s2))] -= request_bw
-                if self.current_link_bw[(str(s1), str(s2))] == 0:
-                    self.current_link_bw[(str(s1), str(s2))] = 1
-            if self.current_link_bw.get((str(s2), str(s1))):
-                self.current_link_bw[(str(s2), str(s1))] -= request_bw
-                if self.current_link_bw[(str(s2), str(s1))] == 0:
-                    self.current_link_bw[(str(s2), str(s1))] = 1
+            if self.current_link_bw.get((s1, s2)):
+                self.current_link_bw[(s1, s2)] -= request_bw
+                if self.current_link_bw[(s1, s2)] == 0:
+                    self.current_link_bw[(s1, s2)] = 1
+            if self.current_link_bw.get((s2, s1)):
+                self.current_link_bw[(s2, s1)] -= request_bw
+                if self.current_link_bw[(s2, s1)] == 0:
+                    self.current_link_bw[(s2, s1)] = 1
+
+    def get_percentage(self, src, dst, bw):
+        if self.link_bw_capacity.get((src, dst)):
+            return (bw / self.link_bw_capacity.get((src, dst))) * 100
+        else:
+            return None
+
+    def get_state_helper(self):
+        return self.state_helper
 
     def build_state(self):
         state = np.empty((NUMBER_OF_HOSTS, NUMBER_OF_HOSTS, NUMBER_OF_PATHS, 1), dtype=object)
@@ -104,40 +105,37 @@ class DRLEngine():
             h_src = "H{}".format(src)
             for dst in range(1, NUMBER_OF_HOSTS + 1):
                 h_dst = "H{}".format(dst)
-                min_value = float('Inf')
                 cnt = 0
                 if len(self.paths[(h_src, h_dst)]) == 1:
-                    if self.paths[(h_src, h_dst)] == []:
+                    if not self.paths[(h_src, h_dst)]:
                         for idx in range(NUMBER_OF_PATHS):
-                            state[src - 1, dst - 1, idx] = 1
+                            state[src - 1, dst - 1, idx] = -1
                     else:
                         state[src - 1, dst - 1, 0] = 100
                         for idx in range(1, NUMBER_OF_PATHS):
-                            state[src - 1, dst - 1, idx] = 1
+                            state[src - 1, dst - 1, idx] = -1
                 else:
                     for path in self.paths[(h_src, h_dst)]:
-                        path = path[1:-1]
+                        min_value = float('Inf')
                         for s1, s2 in zip(path[:-1], path[1:]):
-                            stats = self.current_link_bw.get((str(s1), str(s2)))
+                            stats = self.current_link_bw.get((s1, s2))
                             if stats:
                                 if float(stats) < float(min_value):
-                                    min_value = self.current_link_bw[(str(s1), str(s2))]
+                                    min_value = self.current_link_bw[(s1, s2)]
+                                    self.state_helper[str(src) + "_" + str(dst) + "_" + str(cnt)] = str(s1) + "_" + str(s2)
 
                         state[src - 1, dst - 1, cnt] = float(min_value)
                         cnt += 1
 
                     for idx in range(len(self.paths[(h_src, h_dst)]), NUMBER_OF_PATHS):
-                        state[src - 1, dst - 1, idx] = 1
-
+                        state[src - 1, dst - 1, idx] = -1
         return state
 
     def reset(self):
-        self.graph = nx.Graph()
-
         self.host_pairs = [('H4', 'H8'), ('H2', 'H11'), ('H2', 'H13'), ('H2', 'H9'), ('H4', 'H11'), ('H4', 'H9'), ('H2', 'H8'), ('H1', 'H11'),
-                      ('H1', 'H9'), ('H4', 'H13'), ('H4', 'H10'), ('H4', 'H7'), ('H3', 'H8'), ('H2', 'H10'), ('H2', 'H7'), ('H1', 'H8'),
-                      ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'), ('H1', 'H7'), ('H4', 'H6'),
-                      ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'), ('H5', 'H8'), ('H3', 'H12')]
+                        ('H1', 'H9'), ('H4', 'H13'), ('H4', 'H10'), ('H4', 'H7'), ('H3', 'H8'), ('H2', 'H10'), ('H2', 'H7'), ('H1', 'H8'),
+                        ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'), ('H1', 'H7'), ('H4', 'H6'),
+                        ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'), ('H5', 'H8'), ('H3', 'H12')]
 
         self.current_link_bw = copy.deepcopy(self.link_bw_capacity)
 
@@ -169,22 +167,27 @@ class RoutingEnv(Env):
             for dst in range(NUMBER_OF_HOSTS):
                 for path_number in range(NUMBER_OF_PATHS):
                     bw = self.state[src, dst, path_number]
-                    if bw is not None:
-                        if bw > 75:
-                            reward += 50
-                        elif bw > 50:
-                            reward += 30
-                        elif bw > 25:
-                            pass
-                        elif bw > 0:
-                            reward -= 10
-                        else:
-                            reward -= 100
+                    link = self.engine.get_state_helper().get(
+                        str(src + 1) + "_" + str(dst + 1) + "_" + str(path_number))
+                    if link:
+                        ex_link = link.split("_")
+                        bw_percentage = self.engine.get_percentage(ex_link[0], ex_link[1], bw[0])
+                        if bw_percentage is not None:
+                            if bw_percentage > 75:
+                                reward += 50
+                            elif bw_percentage > 50:
+                                reward += 30
+                            elif bw_percentage > 25:
+                                pass
+                            elif bw_percentage > 0:
+                                reward -= 10
+                            else:
+                                reward -= 100
 
         if self.requests == self.max_requests:
             self.done = True
 
-        return self.state, (reward / REWARD_SCALE) / self.max_requests, self.done, {}
+        return self.state, (reward / REWARD_SCALE), self.done, {}
 
     def render(self):
         pass
@@ -194,11 +197,11 @@ class RoutingEnv(Env):
 
     def reset(self):
         self.done = False
-        self.state = np.full((NUMBER_OF_HOSTS, NUMBER_OF_HOSTS, NUMBER_OF_PATHS, 1), 100, dtype=np.float32)
+        self.engine.reset()
+        self.state = self.engine.build_state()
         self.requests = 0
         self.max_requests = random.randint(1, 32)
-        self.engine.reset()
-
+        
         return self.state
 
 

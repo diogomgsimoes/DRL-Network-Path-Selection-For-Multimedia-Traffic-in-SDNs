@@ -79,7 +79,7 @@ class DRLEngine():
                                     path[i] = path[i].replace("S", "")
                                     path[i] = int(path[i])
 
-        def make_reservation(self, path_id):
+    def make_reservation(self, path_id):
         pair = self.host_pairs.pop(0)
         path = self.paths[(pair[0], pair[1])][path_id]
         request_bw = 15

@@ -55,7 +55,7 @@ class MininetAPI(object):
                         for idx in range(self.n_paths):
                             state[src-1, dst-1, idx] = -1
                     else: 
-                        state[src-1, dst-1, 0] = 1000
+                        state[src-1, dst-1, 0] = 100
                         for idx in range(1, self.n_paths):
                             state[src-1, dst-1, idx] = -1
                 else:

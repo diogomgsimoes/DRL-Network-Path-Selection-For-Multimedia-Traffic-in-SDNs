@@ -246,7 +246,7 @@ if __name__ == "__main__":
     state_flattened_size = 845
     losses = []
     total_reward_list = []
-    epochs = 5000
+    epochs = 7000
     mem_size = 50000
     batch_size = 256
     sync_freq = 16
@@ -267,7 +267,7 @@ if __name__ == "__main__":
             qval = model(state1)
             qval_ = qval.data.numpy()
             if (random.random() < epsilon):
-                action_ = np.random.randint(0, 4)
+                action_ = np.random.randint(0, n_action - 1)
             else:
                 action_ = np.argmax(qval_)
 

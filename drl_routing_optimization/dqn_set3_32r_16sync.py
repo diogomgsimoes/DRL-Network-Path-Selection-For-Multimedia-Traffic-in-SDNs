@@ -30,7 +30,7 @@ class DRLEngine():
                         ('H4', 'H12'), ('H3', 'H11'), ('H2', 'H12'), ('H1', 'H13'), ('H3', 'H9'), ('H1', 'H12'), ('H1', 'H7'), ('H4', 'H6'),
                         ('H3', 'H10'), ('H5', 'H6'), ('H3', 'H13'), ('H3', 'H7'), ('H7', 'H6'), ('H5', 'H11'), ('H5', 'H8'), ('H3', 'H12')]
 
-        self.requests_bw = [3, 5, 10, 15, 18]
+        self.requests_bw = [5, 10, 15, 18, 20]
 
         self.upload_topology()
         self.build_graph()
@@ -279,7 +279,7 @@ if __name__ == "__main__":
             qval = model(state1)
             qval_ = qval.data.numpy()
             if (random.random() < epsilon):
-                action_ = np.random.randint(0, 4)
+                action_ = np.random.randint(0, n_action - 1)
             else:
                 action_ = np.argmax(qval_)
 

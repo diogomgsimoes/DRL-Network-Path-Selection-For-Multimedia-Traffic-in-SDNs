@@ -337,7 +337,7 @@ if __name__ == "__main__":
     update_step=16
     batch_size=256
     update_repeats=16
-    num_episodes=3000
+    num_episodes=4000
     seed=42
     max_memory_size=500000
     lr_gamma=0.9

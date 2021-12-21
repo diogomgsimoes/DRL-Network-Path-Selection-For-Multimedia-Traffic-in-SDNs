@@ -112,7 +112,7 @@ if __name__ == "__main__":
     # For Dueling DQN or DDQN
     model_test = QNetwork()
     env = mininet_env.MininetEnv()
-    model_test.load_state_dict(torch.load("dueling-dqn_policy_set4_32r_16sync.pt"))
+    model_test.load_state_dict(torch.load("dueling-dqn_policy_set1_32r_16sync.pt"))
     # model_test.load_state_dict(torch.load("ddqn_policy_set4_32r_16sync.pt"))
     # model_test.load_state_dict(torch.load("dqn_policy_set4_32r_16sync.pt"))
     test_model(model_test, env)

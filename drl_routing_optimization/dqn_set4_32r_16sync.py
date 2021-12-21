@@ -268,7 +268,7 @@ if __name__ == "__main__":
             qval = model(state1)
             qval_ = qval.data.numpy()
             if (random.random() < epsilon):
-                action_ = np.random.randint(0, 4)
+                action_ = np.random.randint(0, n_action - 1)
             else:
                 action_ = np.argmax(qval_)
 

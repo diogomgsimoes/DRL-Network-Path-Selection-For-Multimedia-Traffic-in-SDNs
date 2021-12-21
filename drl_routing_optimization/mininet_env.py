@@ -6,10 +6,10 @@ import numpy as np
 from gym import Env, spaces
 from time import sleep
 
-import proactive_mininet_api
+import proactive_mininet_api_bw_arpanet
 
 NUMBER_HOSTS = 13
-NUMBER_PATHS = 5
+NUMBER_PATHS = 5 
 REWARD_SCALE = NUMBER_HOSTS*NUMBER_HOSTS*NUMBER_PATHS
 
 
@@ -19,7 +19,7 @@ class MininetEnv(Env):
         self.max_requests = 32
         self.done = False
         
-        self.mininet_engine = proactive_mininet_api.MininetAPI(NUMBER_HOSTS, NUMBER_PATHS)
+        self.mininet_engine = proactive_mininet_api_bw_arpanet.MininetAPI(NUMBER_HOSTS, NUMBER_PATHS)
         
         self.observation_space = spaces.Box( \
             low=np.zeros((NUMBER_HOSTS,NUMBER_HOSTS,NUMBER_PATHS,1), dtype=np.float32), \
@@ -27,16 +27,16 @@ class MininetEnv(Env):
         
         self.action_space = spaces.Discrete(NUMBER_PATHS)
         self.state = self.mininet_engine.build_state()
-
     
     def step(self, action):
         self.mininet_engine.start_iperf(action)
         self.number_of_requests += 1
-        reward = 0
         
         sleep(5)
-                
+        
+        reward = 0
         self.state = self.mininet_engine.build_state()
+        
         for src in range(NUMBER_HOSTS):
             for dst in range(NUMBER_HOSTS):
                 for path_number in range(NUMBER_PATHS):
@@ -56,7 +56,6 @@ class MininetEnv(Env):
                                 reward -= 10
                             else:
                                 reward -= 100
-
                         
         if self.number_of_requests == self.max_requests:
             sleep(181)

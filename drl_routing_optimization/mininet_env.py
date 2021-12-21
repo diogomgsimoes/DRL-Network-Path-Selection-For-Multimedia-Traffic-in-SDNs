@@ -6,7 +6,7 @@ import numpy as np
 from gym import Env, spaces
 from time import sleep
 
-import proactive_mininet_api_bw_arpanet
+import proactive_mininet_api
 
 NUMBER_HOSTS = 13
 NUMBER_PATHS = 5 

@@ -2,7 +2,7 @@ import copy
 import networkx as nx
 from itertools import islice
 
-NUMBER_OF_HOSTS = 14
+NUMBER_OF_HOSTS = 13
 NUMBER_OF_PATHS = 5
 TOPOLOGY_ARPANET_FILE_NAME = "topology_ARPANET.txt"
 hosts = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10', 'H11', 'H12', 'H13']

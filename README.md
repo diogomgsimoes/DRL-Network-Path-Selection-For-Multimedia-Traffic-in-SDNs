@@ -1,6 +1,6 @@
 # DRL-based Network Path Selection For Multimedia Traffic in SDNs #
 
-This repository fullfils its supporting role to a master thesis on "Intelligent Routing for Software-Defined Media Networks". It explores two ways of optimizing routing in the transport of multimedia content in SDNs. This project was developed in Python, inside an Ubuntu VMWare virtual machine and relies on three main Python packages: OpenAI Gym, PyTorch and NetworkX, as well as Mininet.
+This repository fullfils its supporting role to a master thesis on "Intelligent Routing for Software-Defined Media Networks", summarized in the following paper https://ieeexplore.ieee.org/document/9793657. It explores two ways of optimizing routing in the transport of multimedia content in SDNs. This project was developed in Python, inside an Ubuntu VMWare virtual machine and relies on three main Python packages: OpenAI Gym, PyTorch and NetworkX, as well as Mininet.
 
 The routing optimization approaches explored in this project are divided into two folders:
   - link_cost_routing_optimization,
